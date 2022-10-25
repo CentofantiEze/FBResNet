@@ -61,10 +61,10 @@ class FBRestNet(nn.Module):
     """
 #========================================================================================================
 #========================================================================================================
-    def __init__(self, experimentation=Physics(2000,50,1,1), constraint = 'cube',\
-                 nb_blocks=20, noise = 0.05,\
-                 folder = './', im_set="Set1",batch_size=[50,5],\
-                 lr=1e-3, nb_epochs=[10,1]):
+    def __init__(
+        self, experimentation=Physics(2000,50,1,1), constraint = 'cube', nb_blocks=20, 
+        noise = 0.05, folder = './', im_set="Set1",batch_size=[50,5],lr=1e-3, nb_epochs=[10,1]
+        ):
         """
         Parameters
         ----------
@@ -110,9 +110,10 @@ class FBRestNet(nn.Module):
         """
         Load the parameters of a trained model (in Trainings)
         """
-        path_model = self.path+'Trainings/param_{}_{}_'.format(\
-                    self.physics.a,self.physics.p)+self.constr+'.pt'
-        self.model.load_state_dict(torch.load(path_model));
+        path_model = self.path+'Trainings/param_{}_{}_'.format(
+            self.physics.a,self.physics.p
+        )+self.constr+'.pt'
+        self.model.load_state_dict(torch.load(path_model))
         self.model.eval() # be sure to run this step!
 #========================================================================================================
 #========================================================================================================    
@@ -231,8 +232,8 @@ class FBRestNet(nn.Module):
             # Transposed blurred signal, noisy, eig basis
             np.savetxt(self.path+'Datasets/Signals/data_tTb_'+seq+'_n{}'.format(noise)+'.csv',  save_tT_trsf, delimiter=', ', fmt='%12.8f')
         # Tensor completion
-        x_tensor = torch.FloatTensor(liste_l_trsf) # signal in cos/eig basis
-        y_tensor = torch.FloatTensor(liste_tT_trsf)# blurred and noisy signal in elt basis
+        x_tensor = torch.FloatTensor(np.array(liste_l_trsf)) # signal in cos/eig basis
+        y_tensor = torch.FloatTensor(np.array(liste_tT_trsf))# blurred and noisy signal in elt basis
         #
         dataset = TensorDataset(y_tensor[:nsample], x_tensor[:nsample])
         l       = len(dataset)
@@ -515,8 +516,7 @@ class FBRestNet(nn.Module):
             xp[xp<0] = 0
         # export
         print(type(self.constr))
-        Export_Data(t,xp,'./Datasets/data',\
-                        'gauss_pred_a{}'.format(self.physics.a)+self.constr)
+        Export_Data(t,xp,'./Datasets/data','gauss_pred_a{}'.format(self.physics.a)+self.constr)
         # plot
         plt.plot(t,gauss)
         plt.plot(t,xp)

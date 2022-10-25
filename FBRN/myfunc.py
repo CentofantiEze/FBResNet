@@ -19,6 +19,7 @@ import torch.nn as nn
 import torch
 import numpy as np
 from torch.autograd import Variable
+import matplotlib.pyplot as plt
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~`
 
 #
