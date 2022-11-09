@@ -62,7 +62,7 @@ class FBRestNet(nn.Module):
 #========================================================================================================
 #========================================================================================================
     def __init__(
-        self, experimentation=Physics(2000,50,1,1), constraint = 'cube', nb_blocks=20, 
+        self, experimentation=Physics(2000,50,1,1), constraint = 'cube', nb_blocks=20, save=True,
         noise = 0.05, folder = './', im_set="Set1",batch_size=[50,5],lr=1e-3, nb_epochs=[10,1]
         ):
         """
@@ -100,6 +100,7 @@ class FBRestNet(nn.Module):
         self.loss_fn    = torch.nn.MSELoss(reduction='mean')
         # saving info
         self.path       = folder
+        self.save       = save
         # requires regularisation
         self.regul      = (noise>0)&(self.physics.m>20)
         # model creation
@@ -117,7 +118,7 @@ class FBRestNet(nn.Module):
         self.model.eval() # be sure to run this step!
 #========================================================================================================
 #========================================================================================================    
-    def CreateDataSet(self,save='yes'):
+    def CreateDataSet(self):
         """
         Creates the dataset from an image basis, rescale, compute transformation and noise.
         Construct the appropriate loader for the training and validation sets.
@@ -219,7 +220,7 @@ class FBRestNet(nn.Module):
                     liste_tT_trsf.append(x_b)
                     save_tT_trsf.append(x_b.squeeze())
         # Export data in .csv
-        if save =='yes':
+        if self.save:
             seq = 'a{}_'.format(self.physics.a) + self.constr 
             # initial signal, no noise, elt basis
             np.savetxt(self.path+'Datasets/Signals/data_l_'+seq+'.csv',      save_lisse,   delimiter=', ', fmt='%12.8f')
@@ -384,11 +385,11 @@ class FBRestNet(nn.Module):
         #
         print("Final Lipschitz constant = ",lip_cste[-1])
         # Export lip curve
-        Export_Data(np.linspace(0,nb_val-1,nb_val),\
-                    lip_cste,
-                    self.path+'Datasets/data',\
-                    'lip{}_{}_{}_{}.pt'.format(\
-                    self.physics.nx,self.physics.m,self.physics.a,self.physics.p))
+        if self.save:
+            Export_Data(
+                np.linspace(0,nb_val-1,nb_val),lip_cste,self.path+'Datasets/data',
+                'lip{}_{}_{}_{}'.format(self.physics.nx,self.physics.m,self.physics.a,self.physics.p)
+            )
         # Save model
         if save_model:
             torch.save(self.model.state_dict(), self.path+'Trainings/param_{}_{}_'.format(\
@@ -486,7 +487,8 @@ class FBRestNet(nn.Module):
             u      = 1/nx**2*np.linspace(1,nx,nx)
             gauss = 0.5*gauss/np.dot(u,gauss)
         # export
-        Export_Data(t,gauss,self.path+'Datasets/data','gauss_'+self.constr)
+        if self.save:
+            Export_Data(t,gauss,self.path+'Datasets/data','gauss_'+self.constr)
         # obtenir les images bruitees par l' operateur d' ordre a
         # transform
         x_blurred  = self.physics.Compute(gauss).squeeze()
@@ -516,7 +518,8 @@ class FBRestNet(nn.Module):
             xp[xp<0] = 0
         # export
         print(type(self.constr))
-        Export_Data(t,xp,self.path+'Datasets/data','gauss_pred_a{}'.format(self.physics.a)+self.constr)
+        if self.save:
+            Export_Data(t,xp,self.path+'Datasets/data','gauss_pred_a{}'.format(self.physics.a)+self.constr)
         # plot
         plt.plot(t,gauss)
         plt.plot(t,xp)
