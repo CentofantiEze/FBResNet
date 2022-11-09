@@ -486,7 +486,7 @@ class FBRestNet(nn.Module):
             u      = 1/nx**2*np.linspace(1,nx,nx)
             gauss = 0.5*gauss/np.dot(u,gauss)
         # export
-        Export_Data(t,gauss,'./Datasets/data','gauss_'+self.constr)
+        Export_Data(t,gauss,self.path+'Datasets/data','gauss_'+self.constr)
         # obtenir les images bruitees par l' operateur d' ordre a
         # transform
         x_blurred  = self.physics.Compute(gauss).squeeze()
@@ -516,7 +516,7 @@ class FBRestNet(nn.Module):
             xp[xp<0] = 0
         # export
         print(type(self.constr))
-        Export_Data(t,xp,'./Datasets/data','gauss_pred_a{}'.format(self.physics.a)+self.constr)
+        Export_Data(t,xp,self.path+'Datasets/data','gauss_pred_a{}'.format(self.physics.a)+self.constr)
         # plot
         plt.plot(t,gauss)
         plt.plot(t,xp)
