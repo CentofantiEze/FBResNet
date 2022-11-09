@@ -14,7 +14,7 @@ import sys
 class cardan(torch.autograd.Function):  
 
     @staticmethod
-    def forward(ctx,gamma_mu,xtilde,mode_training=True):
+    def forward(ctx,gamma_mu,xtilde,mode_training=True, xmin=0,xmax=1):
         """
 	    Finds the solution of the cubic equation involved in the computation of the proximity operator of the 
         logarithmic barrier of the hyperslab constraints (xmin<x<xmax) using the Cardano formula: ax^3+bx^2+cx+d=0 
@@ -36,7 +36,6 @@ class cardan(torch.autograd.Function):
         crit,crit_compare = torch.zeros(size).type(dtype),torch.zeros(size).type(dtype)
         sol               = torch.zeros(size).type(dtype),
         torch_one         = torch.ones(size).type(dtype)
-        xmin,xmax         = 0, 1
         #set coefficients
         a     = -(xmin+xmax+xtilde)
         b     = xmin*xmax + xtilde*(xmin+xmax) - 2*gamma_mu
