@@ -53,9 +53,13 @@ class Physics:
         base       = np.zeros((self.m,self.nx))        
         h          = 1/(self.nx-1)
         eig_m      = self.eigm.reshape(-1,1)
-        v1         = ((2*np.linspace(0,self.nx-1,self.nx)+1)*h/2).reshape(1,-1)
-        v2         = (np.ones(self.nx)/2*h).reshape(1,-1)
-        base       = 2*np.sqrt(2)/eig_m*np.cos(v1*eig_m)*np.sin(v2*eig_m)
+        # Fix the base definition
+        #v1         = ((2*np.linspace(0,self.nx-1,self.nx)+1)*h/2).reshape(1,-1)
+        v1         = ((2*np.linspace(0,self.nx-1,self.nx)+1)/(2*self.nx)).reshape(1,-1)
+        #v2         = (np.ones(self.nx)/2*h).reshape(1,-1)
+        v2         = (np.ones(self.nx)/(2*self.nx)).reshape(1,-1)
+        #base       = 2*np.sqrt(2)/eig_m*np.cos(v1*eig_m)*np.sin(v2*eig_m)
+        base       = 2*np.sqrt(2)/(eig_m**self.a)*np.cos(v1*eig_m)*np.sin(v2*eig_m)
         self.basis = base
         # # Operator T
         # step 0 : Abel operator integral
