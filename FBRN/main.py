@@ -443,19 +443,30 @@ class FBRestNet(nn.Module):
         xt  = self.physics.BasisChangeInv(xtc)
         xp  = self.physics.BasisChangeInv(xpc)
         xi  = self.physics.BasisChangeInv(xic)
-        fig, (ax1, ax2) = plt.subplots(1, 2)
-        ax1.plot(xtc,'+',label = 'true')
-        ax1.plot(xpc,'kx',label = 'pred')
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12,8))
+        fig.suptitle("Prediction results")
+        #ax1.plot(xtc,'+',label = 'true')
+        #ax1.plot(xpc,'kx',label = 'pred')
+        ax1.plot(xtc,label = 'true', linewidth=3)
         ax1.plot(xic,label = 'init')
+        ax1.plot(xpc,label = 'pred')
+        ax1.set_xlabel('k')
         ax1.legend()
-        ax2.plot(np.linspace(0,1,self.physics.nx),xt,'+',label = 'true')
+        #ax2.plot(np.linspace(0,1,self.physics.nx),xt,'+',label = 'true')
+        ax2.plot(np.linspace(0,1,self.physics.nx),xt,label = 'true', linewidth=3)
+        ax2.plot(np.linspace(0,1,self.physics.nx),xi,label = 'init')        
         ax2.plot(np.linspace(0,1,self.physics.nx),xp,label = 'pred')
-        ax2.set_title("Comparaison")
+        ax2.set_xlabel('t')
         ax2.legend()
         plt.show()
         #
         print("Erreur de sortie : ",avrg/counter)
         print("Erreur initiale : ",avrg_in/counter)
+        loss_elt = self.loss_fn(self.physics.BasisChangeInv(x_pred), self.physics.BasisChangeInv(x_true))
+        init_loss_elt = self.loss_fn(self.physics.BasisChangeInv(x_init), self.physics.BasisChangeInv(x_true))
+        norm_elt = self.loss_fn(torch.zeros(1,1,self.physics.nx), self.physics.BasisChangeInv(x_true))
+        print('Finite element basis error: {}'.format(loss_elt/norm_elt))
+        print('Finite element basis init error: {}'.format(init_loss_elt/norm_elt))
         # return 
         return avrg/counter
 #========================================================================================================
@@ -497,10 +508,17 @@ class FBRestNet(nn.Module):
         vn          = np.zeros(m)
         vn_temp     = np.random.randn(m)*self.physics.eigm**(-2*a)
         vn[fmax:]   = vn_temp[fmax:]
-        vn          = noise*np.linalg.norm(yp)*vn/np.linalg.norm(vn)
-        x_blurred_n = x_blurred + self.physics.BasisChangeInv(vn)
+        vn_elt      = self.physics.BasisChangeInv(vn)
+        vn_elt      = vn_elt/np.linalg.norm(vn_elt)
+        #vn          = noise*np.linalg.norm(yp)*vn/np.linalg.norm(vn)
+        x_blurred_n = x_blurred + self.noise*np.linalg.norm(x_blurred)*vn_elt
         # Etape 5 : bias
-        x_b  = self.physics.ComputeAdjoint(x_blurred_n)
+        #x_b  = self.physics.ComputeAdjoint(x_blurred_n)
+        Teig      = np.diag(self.physics.eigm**(-a))
+        x_b       = self.physics.ComputeAdjoint(x_blurred.reshape(1,-1))
+        x_b      += (Teig.dot(vn)).reshape(1,-1) # noise
+        x_b       = x_b.reshape(1,-1)
+
         # passage float tensor
         x_bias    = Variable(torch.FloatTensor(x_b.reshape(1,1,-1)),requires_grad=False)
         # definition of the initialisation tensor
@@ -515,13 +533,18 @@ class FBRestNet(nn.Module):
             x_pred   = self.model(x_init,x_bias)
             xpc      = x_pred.detach().numpy()[0,0,:]
             xp       = self.physics.BasisChangeInv(xpc)
-            xp[xp<0] = 0
+            #xp[xp<0] = 0
         # export
         print(type(self.constr))
         if self.save:
             Export_Data(t,xp,self.path+'Datasets/data','gauss_pred_a{}'.format(self.physics.a)+self.constr)
         # plot
-        plt.plot(t,gauss)
-        plt.plot(t,xp)
-        print("|x-xp|/|x| =",np.linalg.norm(xp-gauss)/np.linalg.norm(gauss))
-        
+        plt.plot(t,gauss,linewidth=3,label='Gaussian')
+        plt.plot(t,self.physics.BasisChangeInv(x_init.numpy()[0,0]), label='Init')
+        plt.plot(t,xp, label='Pred')
+        plt.xlabel('t')
+        plt.legend()
+        plt.show()
+
+        print("|x-xp|/|x| = ",(np.linalg.norm(xp-gauss)/np.linalg.norm(gauss))**2)
+
