@@ -233,9 +233,9 @@ class FBRestNet(nn.Module):
             # blurred signal, no noise, elt basis
             np.savetxt(self.path+'Datasets/Signals/data_b_'+seq+'.csv',    save_blurred, delimiter=', ', fmt='%12.8f')
             # blurred signal, noisy, elt basis
-            np.savetxt(self.path+'Datasets/Signals/data_bn_'+seq+'_n{}'.format(noise)+'.csv',  save_blurred_n, delimiter=', ', fmt='%12.8f')
+            np.savetxt(self.path+'Datasets/Signals/data_bn_'+seq+'_n{}'.format(self.noise)+'.csv',  save_blurred_n, delimiter=', ', fmt='%12.8f')
             # Transposed blurred signal, noisy, eig basis
-            np.savetxt(self.path+'Datasets/Signals/data_tTb_'+seq+'_n{}'.format(noise)+'.csv',  save_tT_trsf, delimiter=', ', fmt='%12.8f')
+            np.savetxt(self.path+'Datasets/Signals/data_tTb_'+seq+'_n{}'.format(self.noise)+'.csv',  save_tT_trsf, delimiter=', ', fmt='%12.8f')
         # Tensor completion
         x_tensor = torch.FloatTensor(np.array(liste_l_trsf)) # signal in cos/eig basis
         y_tensor = torch.FloatTensor(np.array(liste_tT_trsf))# blurred and noisy signal in elt basis
@@ -307,6 +307,7 @@ class FBRestNet(nn.Module):
         loss_val   = np.zeros(nb_val)
         loss_init  = np.zeros(nb_val)
         lip_cste   = np.zeros(nb_val)
+        hyper_params_list = []
         # defines the optimizer
         lr_i       = self.lr_i
         optimizer  = torch.optim.Adam(filter(lambda p: p.requires_grad,self.model.parameters()),lr=self.lr_i)   
@@ -377,7 +378,13 @@ class FBRestNet(nn.Module):
                 print("    ----- initial error : ",'{:.6}'.format(loss_init[epoch//self.freq_val]))
                 # Test Lipschitz
                 lip_cste[epoch//self.freq_val] = self.model.Lipschitz()
-                
+                # Get hyperparams at the end of epoch
+                mu_vec = [np.squeeze(self.model.Layers[layer_id].mu).item() for layer_id in range(self.nb_blocks)]
+                tau_vec = [np.squeeze(self.model.Layers[layer_id].gamma_reg[1]).item() for layer_id in range(self.nb_blocks)]
+                lambda_vec = [np.squeeze(self.model.Layers[layer_id].gamma_reg[0]).item() for layer_id in range(self.nb_blocks)]
+                hyper_params = np.stack((np.array(mu_vec),np.array(tau_vec),np.array(lambda_vec)))
+                hyper_params_list.append(hyper_params)
+
             
         #=======================
         # training is finished
@@ -399,7 +406,12 @@ class FBRestNet(nn.Module):
         if self.save:
             Export_Data(
                 np.linspace(0,nb_val-1,nb_val),lip_cste,self.path+'Datasets/data',
-                'lip{}_{}_{}_{}'.format(self.physics.nx,self.physics.m,self.physics.a,self.physics.p)
+                'lip{}_{}_{}_{}'.format(self.physics.nx,self.physics.m,self.physics.a,self.physics.p), header=False
+            )
+            np.save(
+                self.path + 'Datasets/data/'+'hyp_params{}_{}_{}_{}.npy'.format(
+                    self.physics.nx,self.physics.m,self.physics.a,self.physics.p
+                ), np.array(hyper_params_list)
             )
         # Save model
         if save_model:
