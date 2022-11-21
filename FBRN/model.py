@@ -272,11 +272,12 @@ class Cnn_reg(nn.Module):
         inv           (MyMatmul): 1-D convolution operators 
         
     """
-    def __init__(self,exp):
+    def __init__(self,exp,init=0.01):
         super(Cnn_reg, self).__init__()
         self.a    = nn.Parameter(torch.FloatTensor([exp.a]),requires_grad=False)
         self.p    = nn.Parameter(torch.FloatTensor([exp.p]),requires_grad=False)
         self.eig  = nn.Parameter(torch.FloatTensor(np.diag(exp.eigm)),requires_grad=False)
+        self.d    = nn.Parameter(torch.FloatTensor([init]))
         #
         self.soft = nn.Softplus()
         self.inv  = MyMatmul(self.eig**self.a)
@@ -302,11 +303,11 @@ class Cnn_reg(nn.Module):
         #
         delta            = torch.sqrt(torch.sum((x_out-x_fil)**2,2))# estimation de l' erreur
         delta            = delta.view(delta.size(0), -1)
-        rho              = torch.ones(1) # torch.sqrt(torch.sum((x_fil)**2,2))# estimation de la norme
+        rho              = torch.sqrt(torch.sum((x_fil)**2,2))# estimation de la norme
         rho              = rho.view(rho.size(0), -1)
         #
         x                = (delta/rho)**(2*(self.a+self.p)/(self.a+2))
-        x                = 0.01*self.soft(x)
+        x                = x*self.soft(self.d)
         x                = x.view(x.size(0),1,1)
         return x
     
