@@ -59,7 +59,8 @@ class Physics:
         #v2         = (np.ones(self.nx)/2*h).reshape(1,-1)
         v2         = (np.ones(self.nx)/(2*self.nx)).reshape(1,-1)
         #base       = 2*np.sqrt(2)/eig_m*np.cos(v1*eig_m)*np.sin(v2*eig_m)
-        base       = 2*np.sqrt(2)/(eig_m**self.a)*np.cos(v1*eig_m)*np.sin(v2*eig_m)
+        # This definition differs from the paper definition
+        base       = 2*np.sqrt(2)/(eig_m)*np.cos(v1*eig_m)*np.sin(v2*eig_m)
         self.basis = base
         # # Operator T
         # step 0 : Abel operator integral
@@ -187,14 +188,15 @@ class MyMatmul(nn.Module):
 ####################################################################
 
 ### EXPORT DATA
-def Export_Data(xdata,ydata,folder,name):
+def Export_Data(xdata,ydata,folder,name,header=True):
     """
     Save a signal in a chose folder
     for plot purpose.
     """
     Npoint = np.size(xdata)
     with open(folder+'/'+name+'.txt', 'w') as f:
-        f.writelines('xdata ydata \n')
+        if header:
+            f.writelines('xdata ydata \n')
         for i in range(Npoint):
             web_browsers = ['{0}'.format(xdata[i]),' ','{0} \n'.format(ydata[i])]
             f.writelines(web_browsers)
