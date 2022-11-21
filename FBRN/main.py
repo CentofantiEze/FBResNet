@@ -204,17 +204,21 @@ class FBRestNet(nn.Module):
                     # save
                     save_blurred.append(x_blurred)
                     # Etape 4 : noise 
-                    vn          = np.zeros(m)
-                    vn_temp     = np.random.randn(m)*self.physics.eigm**(-2*a)
-                    vn[fmax:]   = vn_temp[fmax:]
-                    vn_elt      = self.physics.BasisChangeInv(vn)
-                    vn_elt      = vn_elt/np.linalg.norm(vn_elt)
-                    x_blurred_n = x_blurred + self.noise*np.linalg.norm(x_blurred)*vn_elt
+                    #vn          = np.zeros(m)
+                    #vn_temp     = np.random.randn(m)*self.physics.eigm**(-2*a)
+                    #vn[fmax:]   = vn_temp[fmax:]
+                    #vn_elt      = self.physics.BasisChangeInv(vn)
+                    #vn_elt      = vn_elt#/np.linalg.norm(vn_elt)
+                    # White noise (as indicated in the paper)
+                    noise = np.random.randn(nx)
+                    x_blurred_n = x_blurred + self.noise*np.linalg.norm(x_blurred)/np.sqrt(nx)*noise#vn_elt
                     # save
                     save_blurred_n.append(x_blurred_n)
                     # Etape 5 : bias
-                    x_b       = self.physics.ComputeAdjoint(x_blurred.reshape(1,-1))
-                    x_b      += (Teig.dot(vn)).reshape(1,-1) # noise
+                    #x_b       = self.physics.ComputeAdjoint(x_blurred.reshape(1,-1))
+                    #x_b      += (Teig.dot(vn)).reshape(1,-1) # noise
+                    # Compute Bias as in the paper T*(y_noisy)
+                    x_b = self.physics.ComputeAdjoint(x_blurred_n)
                     x_b       = x_b.reshape(1,-1)
                     # and save
                     liste_tT_trsf.append(x_b)
@@ -243,7 +247,14 @@ class FBRestNet(nn.Module):
         #
         train_loader = DataLoader(train_dataset, batch_size=self.train_size, shuffle=True)
         val_loader   = DataLoader(val_dataset, batch_size=1, shuffle=False)
-        #
+        # Plot the output with and without noise
+        plt.plot(save_blurred_n[0],label='Noisy')
+        plt.plot(save_blurred[0],label='Noiseless')
+        plt.legend()
+        plt.title('Output signal')
+        plt.show()
+        
+
         return train_loader, val_loader
 #========================================================================================================
 #========================================================================================================
@@ -511,12 +522,16 @@ class FBRestNet(nn.Module):
         vn_elt      = self.physics.BasisChangeInv(vn)
         vn_elt      = vn_elt/np.linalg.norm(vn_elt)
         #vn          = noise*np.linalg.norm(yp)*vn/np.linalg.norm(vn)
-        x_blurred_n = x_blurred + self.noise*np.linalg.norm(x_blurred)*vn_elt
+        # White noise (as indicated in the paper)
+        noise = np.random.randn(nx)
+        x_blurred_n = x_blurred + self.noise*np.linalg.norm(x_blurred)/np.sqrt(nx)*noise
+        
         # Etape 5 : bias
         #x_b  = self.physics.ComputeAdjoint(x_blurred_n)
-        Teig      = np.diag(self.physics.eigm**(-a))
-        x_b       = self.physics.ComputeAdjoint(x_blurred.reshape(1,-1))
-        x_b      += (Teig.dot(vn)).reshape(1,-1) # noise
+        #Teig      = np.diag(self.physics.eigm**(-a))
+        #x_b       = self.physics.ComputeAdjoint(x_blurred.reshape(1,-1))
+        #x_b      += (Teig.dot(vn)).reshape(1,-1) # noise
+        x_b = self.physics.ComputeAdjoint(x_blurred_n)
         x_b       = x_b.reshape(1,-1)
 
         # passage float tensor
