@@ -51,6 +51,7 @@ class FBRestNet(nn.Module):
         nb_epochs            (int): number of epochs of training.
         freq_val             (int): frequence of computation of validation test.
         nb_blocks            (int): number of blocks in the neural network.
+        batch_size           (int): training batch size.
         train_size           (int): size of the training dataset.
         val_size             (int): size of the validation dataset.
         im_set               (str): 'Set1' or 'Set2' to select the set of image to construct the 1D signal Dataset.
@@ -73,7 +74,9 @@ class FBRestNet(nn.Module):
         dataset_folder = '../Datasets/',
         model_folder = './Trainings', 
         im_set="Set1",
-        batch_size=[50,5],
+        train_size=50,
+        val_size=10,
+        batch_size=5,
         lr=1e-3, 
         nb_epochs=[10,1],
         loss_elt=False
@@ -88,9 +91,9 @@ class FBRestNet(nn.Module):
             folder                     (str): current folder in relative
             im_set                     (str): 'Set1' or 'Set2' to select the set of image 
                                               to construct the 1D signal Dataset
-            batch_size               (tuple): two integers,
-                                               the size of the dataset and 
-                                               the batch when evaluating the neural network (default is 1)
+            batch_size                 (int): training batch size.
+            train_size                 (int): size of the training dataset.
+            val_size                   (int): size of the validation dataset.
             lr_i                     (float): learning rate
             nb_epochs                (tuple): two integers,
                                                the number of epochs of training and
@@ -110,9 +113,9 @@ class FBRestNet(nn.Module):
         self.nb_epochs  = nb_epochs[0]
         self.freq_val   = nb_epochs[1]
         self.nb_blocks  = nb_blocks
-        self.nsamples   = batch_size[0]
-        self.train_size = batch_size[1] # training set 
-        self.val_size   = 1            # and validation set/test set 
+        self.train_size = train_size 
+        self.val_size   = val_size
+        self.batch_size = batch_size 
         self.im_set     = im_set
         self.loss_fn    = torch.nn.MSELoss(reduction='mean')
         # saving info
@@ -158,7 +161,7 @@ class FBRestNet(nn.Module):
         m              = self.physics.m
         a              = self.physics.a
         noise          = self.noise
-        nsample        = self.nsamples
+        nsample        = self.train_size + self.val_size
         im_set         = self.im_set
         Teig           = np.diag(self.physics.eigm**(-a))
         Pelt           = self.physics.Operators()[3]
@@ -260,11 +263,10 @@ class FBRestNet(nn.Module):
         y_tensor = torch.FloatTensor(np.array(liste_tT_trsf))# blurred and noisy signal in elt basis
         #
         dataset = TensorDataset(y_tensor[:nsample], x_tensor[:nsample])
-        l       = len(dataset)
-        ratio   = 2*l//3
-        train_dataset, val_dataset = random_split(dataset, [ratio, l-ratio])
+        # Split dataset
+        train_dataset, val_dataset = random_split(dataset, [self.train_size, self.val_size])
         #
-        train_loader = DataLoader(train_dataset, batch_size=self.train_size, shuffle=True)
+        train_loader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True)
         val_loader   = DataLoader(val_dataset, batch_size=1, shuffle=False)
         # Plot the output with and without noise
         plt.plot(save_blurred_n[0],label='Noisy')
@@ -287,7 +289,7 @@ class FBRestNet(nn.Module):
             (DataLoader): validation set
         """
         #
-        nsample = self.nsamples
+        nsample = self.train_size + self.val_size
         #
         seq = 'a{}_'.format(self.physics.a) + self.constr
         dfl     = pd.read_csv(self.dataset_folder+'Signals/data_l_trsf_'+seq+'.csv', sep=',',header=None)
@@ -299,9 +301,8 @@ class FBRestNet(nn.Module):
         y_tensor = torch.FloatTensor(dfb.values[:nsample]).view(-1,1,nx)
         #
         dataset = TensorDataset(y_tensor, x_tensor)
-        l = len(dataset)
-        ratio = 2*l//3
-        train_dataset, val_dataset = random_split(dataset, [ratio, l-ratio])
+        # Split dataset
+        train_dataset, val_dataset = random_split(dataset, [self.train_size, self.val_size])
         #
         train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True)
         val_loader   = DataLoader(val_dataset, batch_size=1, shuffle=False)
