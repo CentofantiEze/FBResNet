@@ -44,28 +44,38 @@ class FBRestNet(nn.Module):
     Includes the main training and testing methods of iRestNet.
     Attributes
     ----------
-        physics    (Physics class): contains the parameters of the Abel integral
-        noise              (float): standard deviation of the Gaussian white noise
-        constr               (str): 'cube' of 'slab' to determine the proximal operator
-        lr_i               (float): learning rate
-        nb_epochs            (int): number of epochs of training
-        freq_val             (int): frequence of computation of validation test
-        nb_blocks            (int): number of blocks in the neural network
-        train_size           (int): size of the training dataset
-        val_size             (int): size of the validation dataset
-        im_set               (str): 'Set1' or 'Set2' to select the set of image to construct the 1D signal Dataset
-        loss_fn             (Loss): loss function (here only MSE)
+        physics    (Physics class): contains the parameters of the Abel integral.
+        noise              (float): standard deviation of the Gaussian white noise.
+        constr               (str): 'cube' of 'slab' to determine the proximal operator.
+        lr_i               (float): learning rate.
+        nb_epochs            (int): number of epochs of training.
+        freq_val             (int): frequence of computation of validation test.
+        nb_blocks            (int): number of blocks in the neural network.
+        train_size           (int): size of the training dataset.
+        val_size             (int): size of the validation dataset.
+        im_set               (str): 'Set1' or 'Set2' to select the set of image to construct the 1D signal Dataset.
+        loss_fn             (Loss): loss function (here only MSE).
         loss_elt            (bool): compute the loss in the finite elements space.
-        path                 (str): current folder
-        save                (bool): save the datasets and the plot data
-        regul               (bool): 'True' is the regularisation parameter is not zero
-        model      (Mymodel class): the FBResNet model for Abel integral inversion
+        dataset_path         (str): path to the Dataset folder.
+        save                (bool): save the datasets and the plot data.
+        regul               (bool): 'True' is the regularisation parameter is not zero.
+        model      (Mymodel class): the FBResNet model for Abel integral inversion.
     """
 #========================================================================================================
 #========================================================================================================
     def __init__(
-        self, experimentation=Physics(2000,50,1,1), constraint = 'cube', nb_blocks=20, save=True,
-        noise = 0.05, folder = './', im_set="Set1",batch_size=[50,5],lr=1e-3, nb_epochs=[10,1],
+        self, 
+        experimentation=Physics(2000,50,1,1), 
+        constraint = 'cube', 
+        nb_blocks=20, 
+        save=True,
+        noise = 0.05,
+        dataset_path = '../Datasets/',
+        model_path = './Trainings', 
+        im_set="Set1",
+        batch_size=[50,5],
+        lr=1e-3, 
+        nb_epochs=[10,1],
         loss_elt=False
         ):
         """
@@ -85,6 +95,8 @@ class FBRestNet(nn.Module):
             nb_epochs                (tuple): two integers,
                                                the number of epochs of training and
                                                the frequence to plot statistics during training
+            dataset_path               (str): path to the Dataset folder.
+            model_path                 (str): path to the pretrained model weigths.
             save                      (bool): save the datasets and the plot data
             loss_elt                  (bool): compute the loss in the finite elements space.
         """
@@ -104,7 +116,8 @@ class FBRestNet(nn.Module):
         self.im_set     = im_set
         self.loss_fn    = torch.nn.MSELoss(reduction='mean')
         # saving info
-        self.path       = folder
+        self.model_path = model_path
+        self.dataset_path = dataset_path
         self.save       = save
         self.loss_elt   = loss_elt
         # requires regularisation
@@ -117,7 +130,7 @@ class FBRestNet(nn.Module):
         """
         Load the parameters of a trained model (in Trainings)
         """
-        path_model = self.path+'Trainings/param_{}_{}_'.format(
+        path_model = self.model_path+'param_{}_{}_'.format(
             self.physics.a,self.physics.p
         )+self.constr+'.pt'
         self.model.load_state_dict(torch.load(path_model))
@@ -162,7 +175,7 @@ class FBRestNet(nn.Module):
         save_tT_trsf   = []
         # Upload Data
         # path : './MyResNet/Datasets/Images/'
-        for folder, subfolders, filenames in os.walk(self.path+'Datasets/Images/'+im_set+'/'): 
+        for folder, subfolders, filenames in os.walk(self.dataset_path+'Images/'+im_set+'/'): 
             for img in filenames: 
                 item       = folder+img
                 img_cv     = cv.imread(item,cv.IMREAD_COLOR)
@@ -233,15 +246,15 @@ class FBRestNet(nn.Module):
         if self.save:
             seq = 'a{}_'.format(self.physics.a) + self.constr 
             # initial signal, no noise, elt basis
-            np.savetxt(self.path+'Datasets/Signals/data_l_'+seq+'.csv',      save_lisse,   delimiter=', ', fmt='%12.8f')
+            np.savetxt(self.dataset_path+'Signals/data_l_'+seq+'.csv',      save_lisse,   delimiter=', ', fmt='%12.8f')
             # initial signal, no noise, eig basis
-            np.savetxt(self.path+'Datasets/Signals/data_l_trsf_'+seq+'.csv', save_l_trsf,  delimiter=', ', fmt='%12.8f')
+            np.savetxt(self.dataset_path+'Signals/data_l_trsf_'+seq+'.csv', save_l_trsf,  delimiter=', ', fmt='%12.8f')
             # blurred signal, no noise, elt basis
-            np.savetxt(self.path+'Datasets/Signals/data_b_'+seq+'.csv',    save_blurred, delimiter=', ', fmt='%12.8f')
+            np.savetxt(self.dataset_path+'Signals/data_b_'+seq+'.csv',    save_blurred, delimiter=', ', fmt='%12.8f')
             # blurred signal, noisy, elt basis
-            np.savetxt(self.path+'Datasets/Signals/data_bn_'+seq+'_n{}'.format(self.noise)+'.csv',  save_blurred_n, delimiter=', ', fmt='%12.8f')
+            np.savetxt(self.dataset_path+'Signals/data_bn_'+seq+'_n{}'.format(self.noise)+'.csv',  save_blurred_n, delimiter=', ', fmt='%12.8f')
             # Transposed blurred signal, noisy, eig basis
-            np.savetxt(self.path+'Datasets/Signals/data_tTb_'+seq+'_n{}'.format(self.noise)+'.csv',  save_tT_trsf, delimiter=', ', fmt='%12.8f')
+            np.savetxt(self.dataset_path+'Signals/data_tTb_'+seq+'_n{}'.format(self.noise)+'.csv',  save_tT_trsf, delimiter=', ', fmt='%12.8f')
         # Tensor completion
         x_tensor = torch.FloatTensor(np.array(liste_l_trsf)) # signal in cos/eig basis
         y_tensor = torch.FloatTensor(np.array(liste_tT_trsf))# blurred and noisy signal in elt basis
@@ -277,8 +290,8 @@ class FBRestNet(nn.Module):
         nsample = self.nsamples
         #
         seq = 'a{}_'.format(self.physics.a) + self.constr
-        dfl     = pd.read_csv(self.path+'Datasets/Signals/data_l_trsf_'+seq+'.csv', sep=',',header=None)
-        dfb    = pd.read_csv(self.path+'Datasets/Signals/data_tTb_'+seq+'_n{}'.format(self.noise)+'.csv', sep=',',header=None)
+        dfl     = pd.read_csv(self.dataset_path+'Signals/data_l_trsf_'+seq+'.csv', sep=',',header=None)
+        dfb    = pd.read_csv(self.dataset_path+'Signals/data_tTb_'+seq+'_n{}'.format(self.noise)+'.csv', sep=',',header=None)
         _,m     = dfl.shape
         _,nx    = dfb.shape
         #
@@ -422,17 +435,17 @@ class FBRestNet(nn.Module):
         # Export lip curve
         if self.save:
             Export_Data(
-                np.linspace(0,nb_val-1,nb_val),lip_cste,self.path+'Datasets/data',
+                np.linspace(0,nb_val-1,nb_val),lip_cste,self.dataset_path+'data',
                 'lip{}_{}_{}_{}'.format(self.physics.nx,self.physics.m,self.physics.a,self.physics.p), header=False
             )
             np.save(
-                self.path + 'Datasets/data/'+'hyp_params{}_{}_{}_{}.npy'.format(
+                self.dataset_path + 'data/'+'hyp_params{}_{}_{}_{}.npy'.format(
                     self.physics.nx,self.physics.m,self.physics.a,self.physics.p
                 ), np.array(hyper_params_list)
             )
         # Save model
         if save_model:
-            torch.save(self.model.state_dict(), self.path+'Trainings/param_{}_{}_'.format(\
+            torch.save(self.model.state_dict(), self.model_path+'param_{}_{}_'.format(\
             self.physics.a,self.physics.p)+self.constr+'.pt')
 #========================================================================================================
 #========================================================================================================    
@@ -539,7 +552,7 @@ class FBRestNet(nn.Module):
             gauss = 0.5*gauss/np.dot(u,gauss)
         # export
         if self.save:
-            Export_Data(t,gauss,self.path+'Datasets/data','gauss_'+self.constr)
+            Export_Data(t,gauss,self.dataset_path+'data','gauss_'+self.constr)
         # obtenir les images bruitees par l' operateur d' ordre a
         # transform
         x_blurred  = self.physics.Compute(gauss).squeeze()
@@ -581,7 +594,7 @@ class FBRestNet(nn.Module):
         # export
         print(type(self.constr))
         if self.save:
-            Export_Data(t,xp,self.path+'Datasets/data','gauss_pred_a{}'.format(self.physics.a)+self.constr)
+            Export_Data(t,xp,self.dataset_path+'data','gauss_pred_a{}'.format(self.physics.a)+self.constr)
         # plot
         plt.plot(t,gauss,linewidth=3,label='Gaussian')
         plt.plot(t,self.physics.BasisChangeInv(x_init.numpy()[0,0]), label='Init')
