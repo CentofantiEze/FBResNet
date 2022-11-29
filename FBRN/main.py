@@ -55,7 +55,9 @@ class FBRestNet(nn.Module):
         val_size             (int): size of the validation dataset
         im_set               (str): 'Set1' or 'Set2' to select the set of image to construct the 1D signal Dataset
         loss_fn             (Loss): loss function (here only MSE)
+        loss_elt            (bool): compute the loss in the finite elements space.
         path                 (str): current folder
+        save                (bool): save the datasets and the plot data
         regul               (bool): 'True' is the regularisation parameter is not zero
         model      (Mymodel class): the FBResNet model for Abel integral inversion
     """
@@ -63,25 +65,28 @@ class FBRestNet(nn.Module):
 #========================================================================================================
     def __init__(
         self, experimentation=Physics(2000,50,1,1), constraint = 'cube', nb_blocks=20, save=True,
-        noise = 0.05, folder = './', im_set="Set1",batch_size=[50,5],lr=1e-3, nb_epochs=[10,1]
+        noise = 0.05, folder = './', im_set="Set1",batch_size=[50,5],lr=1e-3, nb_epochs=[10,1],
+        loss_elt=False
         ):
         """
         Parameters
         ----------
-                 experimentation  (Physics class):contains the parameters of the Abel integral
-                 constraint                 (str): 'cube' of 'slab' to determine the proximal operator
-                 nb_blocks                  (int): number of blocks in the neural network
-                 noise                    (float): standard deviation of the Gaussian white noise
-                 folder                     (str): current folder in relative
-                 im_set                     (str): 'Set1' or 'Set2' to select the set of image 
-                                                  to construct the 1D signal Dataset
-                 batch_size               (tuple): two integers,
-                                                   the size of the dataset and 
-                                                   the batch when evaluating the neural network (default is 1)
-                 lr_i                     (float): learning rate
-                 nb_epochs                (tuple): two integers,
-                                                   the number of epochs of training and
-                                                   the frequence to plot statistics during training
+            experimentation  (Physics class):contains the parameters of the Abel integral
+            constraint                 (str): 'cube' of 'slab' to determine the proximal operator
+            nb_blocks                  (int): number of blocks in the neural network
+            noise                    (float): standard deviation of the Gaussian white noise
+            folder                     (str): current folder in relative
+            im_set                     (str): 'Set1' or 'Set2' to select the set of image 
+                                              to construct the 1D signal Dataset
+            batch_size               (tuple): two integers,
+                                               the size of the dataset and 
+                                               the batch when evaluating the neural network (default is 1)
+            lr_i                     (float): learning rate
+            nb_epochs                (tuple): two integers,
+                                               the number of epochs of training and
+                                               the frequence to plot statistics during training
+            save                      (bool): save the datasets and the plot data
+            loss_elt                  (bool): compute the loss in the finite elements space.
         """
         super(FBRestNet, self).__init__()   
         # physical information
@@ -101,6 +106,7 @@ class FBRestNet(nn.Module):
         # saving info
         self.path       = folder
         self.save       = save
+        self.loss_elt   = loss_elt
         # requires regularisation
         self.regul      = (noise>0)&(self.physics.m>20)
         # model creation
@@ -336,6 +342,11 @@ class FBRestNet(nn.Module):
                 # prediction
                 x_pred    = self.model(x_init,x_bias) 
                 # Computes and prints loss
+                if self.loss_elt:
+                    # Compute the loss in the finite elements space
+                    x_pred = self.model.Layers[0].Pelt(x_pred)
+                    x_true = self.model.Layers[0].Pelt(x_true)
+                # Compute the loss
                 loss               = self.loss_fn(x_pred,x_true)
                 norm               = torch.norm(x_true.detach())
                 loss_train[epoch] += torch.Tensor.item(loss/norm)
@@ -365,6 +376,12 @@ class FBRestNet(nn.Module):
                         # prediction
                         x_pred  = self.model(x_init,x_bias).detach()
                         # computes loss on validation set
+                        if self.loss_elt:
+                            # Compute the loss in the finite elements space
+                            x_pred = self.model.Layers[0].Pelt(x_pred)
+                            x_true = self.model.Layers[0].Pelt(x_true)
+                            x_init = self.model.Layers[0].Pelt(x_init)
+                        # Compute the loss
                         norm    = torch.norm(x_true.detach())
                         loss    = self.loss_fn(x_pred, x_true)
                         loss_in = self.loss_fn(x_init, x_true)
@@ -394,10 +411,10 @@ class FBRestNet(nn.Module):
         
         # Plots
         fig, (ax1, ax2) = plt.subplots(1, 2)
-        ax1.plot(np.linspace(0,1,nb_epochs),loss_train,label = 'train')
-        ax1.plot(np.linspace(0,1,nb_val),loss_val,label = 'val')
+        ax1.plot(np.linspace(0,nb_epochs-1,nb_epochs),loss_train,label = 'train')
+        ax1.plot(np.linspace(0,nb_epochs-1,nb_val),loss_val,label = 'val')
         ax1.legend()
-        ax2.plot(np.linspace(0,1,nb_val),lip_cste,'r-')
+        ax2.plot(np.linspace(0,nb_val-1,nb_val),lip_cste,'r-')
         ax2.set_title("Lipschitz constant")
         plt.show()
         #
