@@ -44,6 +44,7 @@ class FBRestNet(nn.Module):
     Includes the main training and testing methods of iRestNet.
     Attributes
     ----------
+        model_id             (str): the unique Id of the model.
         physics    (Physics class): contains the parameters of the Abel integral.
         noise              (float): standard deviation of the Gaussian white noise.
         constr               (str): 'cube' of 'slab' to determine the proximal operator.
@@ -57,8 +58,10 @@ class FBRestNet(nn.Module):
         im_set               (str): 'Set1' or 'Set2' to select the set of image to construct the 1D signal Dataset.
         loss_fn             (Loss): loss function (here only MSE).
         loss_elt            (bool): compute the loss in the finite elements space.
-        dataset_folder         (str): path to the Dataset folder.
-        save                (bool): save the datasets and the plot data.
+        dataset_folder       (str): path to the Dataset folder.
+        save_signals        (bool): save the 1D signals.
+        save_outputs        (bool): save the forwar-backwards parameters.
+        save_model          (bool): save the models weights.
         regul               (bool): 'True' is the regularisation parameter is not zero.
         model      (Mymodel class): the FBResNet model for Abel integral inversion.
     """
@@ -66,8 +69,9 @@ class FBRestNet(nn.Module):
 #========================================================================================================
     def __init__(
         self,
+        model_id = 'model_000_',
         dataset_folder = '../Datasets/',
-        model_folder = './Trainings',  
+        model_folder = '../outputs/models/',
         experimentation=Physics(2000,50,1,1),
         nb_blocks=20,
         im_set="Set1",
@@ -80,12 +84,15 @@ class FBRestNet(nn.Module):
         nb_epochs=10,
         freq_val=1,
         loss_elt=False,
-        save=True
+        save_signals=False,
+        save_outputs=False,
+        save_model=False
         ):
         """
         Parameters
         ----------
-            experimentation  (Physics class):contains the parameters of the Abel integral
+            model_id                   (str): the unique Id of the model.
+            experimentation  (Physics class): contains the parameters of the Abel integral
             constraint                 (str): 'cube' of 'slab' to determine the proximal operator
             nb_blocks                  (int): number of blocks in the neural network
             noise                    (float): standard deviation of the Gaussian white noise
@@ -96,14 +103,17 @@ class FBRestNet(nn.Module):
             train_size                 (int): size of the training dataset.
             val_size                   (int): size of the validation dataset.
             lr_i                     (float): learning rate
-            nb_epochs                  (int): Number of epochs for training.
-            freq_val                   (int): Model validation rate.
+            nb_epochs                  (int): number of epochs for training.
+            freq_val                   (int): model validation rate.
             dataset_folder             (str): path to the Dataset folder.
             model_folder               (str): path to the pretrained model weigths.
-            save                      (bool): save the datasets and the plot data
             loss_elt                  (bool): compute the loss in the finite elements space.
+            save_signals              (bool): save the 1D signals.
+            save_outputs              (bool): save the forwar-backwards parameters.
+            save_model                (bool): save the models weights.
         """
-        super(FBRestNet, self).__init__()   
+        super(FBRestNet, self).__init__() 
+        self.model_id = model_id  
         # physical information
         self.physics    = experimentation
         self.noise      = noise
@@ -121,7 +131,9 @@ class FBRestNet(nn.Module):
         # saving info
         self.model_folder = model_folder
         self.dataset_folder = dataset_folder
-        self.save       = save
+        self.save_signals = save_signals
+        self.save_outputs = save_outputs
+        self.save_model = save_model
         self.loss_elt   = loss_elt
         # requires regularisation
         self.regul      = (noise>0)&(self.physics.m>20)
@@ -246,7 +258,7 @@ class FBRestNet(nn.Module):
                     liste_tT_trsf.append(x_b)
                     save_tT_trsf.append(x_b.squeeze())
         # Export data in .csv
-        if self.save:
+        if self.save_signals:
             seq = 'a{}_'.format(self.physics.a) + self.constr 
             # initial signal, no noise, elt basis
             np.savetxt(self.dataset_folder+'Signals/data_l_'+seq+'.csv',      save_lisse,   delimiter=', ', fmt='%12.8f')
@@ -310,7 +322,7 @@ class FBRestNet(nn.Module):
         return train_loader, val_loader
 #========================================================================================================
 #========================================================================================================    
-    def train(self,train_set,val_set,test_lipschitz=True,save_model=False):
+    def train(self,train_set,val_set,test_lipschitz=True):
         """
         Trains FBRestNet.
         Parameters
@@ -318,7 +330,6 @@ class FBRestNet(nn.Module):
             train_loader (DataLoder): training set
             val_loader  (DataLoader): validation set
             test_lipschitz    (bool): True if the lipschitz constant is computed during training
-            save_model        (bool): True if the parameters are saved after training
         """      
         # to store results
         nb_epochs  = self.nb_epochs
@@ -434,7 +445,7 @@ class FBRestNet(nn.Module):
         #
         print("Final Lipschitz constant = ",lip_cste[-1])
         # Export lip curve
-        if self.save:
+        if self.save_outputs:
             Export_Data(
                 np.linspace(0,nb_val-1,nb_val),lip_cste,self.dataset_folder+'data',
                 'lip{}_{}_{}_{}'.format(self.physics.nx,self.physics.m,self.physics.a,self.physics.p), header=False
@@ -445,9 +456,8 @@ class FBRestNet(nn.Module):
                 ), np.array(hyper_params_list)
             )
         # Save model
-        if save_model:
-            torch.save(self.model.state_dict(), self.model_folder+'param_{}_{}_'.format(\
-            self.physics.a,self.physics.p)+self.constr+'.pt')
+        if self.save_model:
+            torch.save(self.model.state_dict(), self.model_folder+self.model_id+'weights.pt')
 #========================================================================================================
 #========================================================================================================    
     def test(self,data_set):    
@@ -552,7 +562,7 @@ class FBRestNet(nn.Module):
             u      = 1/nx**2*np.linspace(1,nx,nx)
             gauss = 0.5*gauss/np.dot(u,gauss)
         # export
-        if self.save:
+        if self.save_signals:
             Export_Data(t,gauss,self.dataset_folder+'data','gauss_'+self.constr)
         # obtenir les images bruitees par l' operateur d' ordre a
         # transform
@@ -594,7 +604,7 @@ class FBRestNet(nn.Module):
             #xp[xp<0] = 0
         # export
         print(type(self.constr))
-        if self.save:
+        if self.save_signals:
             Export_Data(t,xp,self.dataset_folder+'data','gauss_pred_a{}'.format(self.physics.a)+self.constr)
         # plot
         plt.plot(t,gauss,linewidth=3,label='Gaussian')
