@@ -49,7 +49,7 @@ class FBRestNet(nn.Module):
         constr               (str): 'cube' of 'slab' to determine the proximal operator.
         lr_i               (float): learning rate.
         nb_epochs            (int): number of epochs of training.
-        freq_val             (int): frequence of computation of validation test.
+        freq_val             (int): Model validation rate.
         nb_blocks            (int): number of blocks in the neural network.
         batch_size           (int): training batch size.
         train_size           (int): size of the training dataset.
@@ -65,21 +65,22 @@ class FBRestNet(nn.Module):
 #========================================================================================================
 #========================================================================================================
     def __init__(
-        self, 
-        experimentation=Physics(2000,50,1,1), 
-        constraint = 'cube', 
-        nb_blocks=20, 
-        save=True,
-        noise = 0.05,
+        self,
         dataset_folder = '../Datasets/',
-        model_folder = './Trainings', 
+        model_folder = './Trainings',  
+        experimentation=Physics(2000,50,1,1),
+        nb_blocks=20,
         im_set="Set1",
+        noise = 0.05,        
+        constraint = 'cube',  
         train_size=50,
         val_size=10,
         batch_size=5,
         lr=1e-3, 
-        nb_epochs=[10,1],
-        loss_elt=False
+        nb_epochs=10,
+        freq_val=1,
+        loss_elt=False,
+        save=True
         ):
         """
         Parameters
@@ -95,11 +96,10 @@ class FBRestNet(nn.Module):
             train_size                 (int): size of the training dataset.
             val_size                   (int): size of the validation dataset.
             lr_i                     (float): learning rate
-            nb_epochs                (tuple): two integers,
-                                               the number of epochs of training and
-                                               the frequence to plot statistics during training
-            dataset_folder               (str): path to the Dataset folder.
-            model_folder                 (str): path to the pretrained model weigths.
+            nb_epochs                  (int): Number of epochs for training.
+            freq_val                   (int): Model validation rate.
+            dataset_folder             (str): path to the Dataset folder.
+            model_folder               (str): path to the pretrained model weigths.
             save                      (bool): save the datasets and the plot data
             loss_elt                  (bool): compute the loss in the finite elements space.
         """
@@ -110,8 +110,8 @@ class FBRestNet(nn.Module):
         self.constr     = constraint
         # training information
         self.lr_i       = lr
-        self.nb_epochs  = nb_epochs[0]
-        self.freq_val   = nb_epochs[1]
+        self.nb_epochs  = nb_epochs
+        self.freq_val   = freq_val
         self.nb_blocks  = nb_blocks
         self.train_size = train_size 
         self.val_size   = val_size
