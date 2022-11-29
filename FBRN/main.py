@@ -304,7 +304,7 @@ class FBRestNet(nn.Module):
         # Split dataset
         train_dataset, val_dataset = random_split(dataset, [self.train_size, self.val_size])
         #
-        train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True)
+        train_loader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True)
         val_loader   = DataLoader(val_dataset, batch_size=1, shuffle=False)
         #
         return train_loader, val_loader
