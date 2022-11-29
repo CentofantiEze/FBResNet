@@ -55,13 +55,16 @@ class FBRestNet(nn.Module):
         batch_size           (int): training batch size.
         train_size           (int): size of the training dataset.
         val_size             (int): size of the validation dataset.
-        im_set               (str): 'Set1' or 'Set2' to select the set of image to construct the 1D signal Dataset.
+        im_set               (str): images used to construct the 1D signal dataset (Set1 or Set2).
         loss_fn             (Loss): loss function (here only MSE).
         loss_elt            (bool): compute the loss in the finite elements space.
         dataset_folder       (str): path to the Dataset folder.
+        model_folder         (str): path to the pretrained model weigths.
+        opt_hist_folder      (str): optimisation history saving folder.
         save_signals        (bool): save the 1D signals.
         save_outputs        (bool): save the forwar-backwards parameters.
         save_model          (bool): save the models weights.
+        save_hist           (bool): save the models optimisation history.
         regul               (bool): 'True' is the regularisation parameter is not zero.
         model      (Mymodel class): the FBResNet model for Abel integral inversion.
     """
@@ -72,6 +75,7 @@ class FBRestNet(nn.Module):
         model_id = 'model_000_',
         dataset_folder = '../Datasets/',
         model_folder = '../outputs/models/',
+        opt_hist_folder = '../outputs/opt_hist/',
         experimentation=Physics(2000,50,1,1),
         nb_blocks=20,
         im_set="Set1",
@@ -86,7 +90,8 @@ class FBRestNet(nn.Module):
         loss_elt=False,
         save_signals=False,
         save_outputs=False,
-        save_model=False
+        save_model=False,
+        save_hist=True
         ):
         """
         Parameters
@@ -96,9 +101,7 @@ class FBRestNet(nn.Module):
             constraint                 (str): 'cube' of 'slab' to determine the proximal operator
             nb_blocks                  (int): number of blocks in the neural network
             noise                    (float): standard deviation of the Gaussian white noise
-            folder                     (str): current folder in relative
-            im_set                     (str): 'Set1' or 'Set2' to select the set of image 
-                                              to construct the 1D signal Dataset
+            im_set                     (str): images used to construct the 1D signal dataset (Set1 or Set2).
             batch_size                 (int): training batch size.
             train_size                 (int): size of the training dataset.
             val_size                   (int): size of the validation dataset.
@@ -107,10 +110,12 @@ class FBRestNet(nn.Module):
             freq_val                   (int): model validation rate.
             dataset_folder             (str): path to the Dataset folder.
             model_folder               (str): path to the pretrained model weigths.
+            opt_hist_folder            (str): optimisation history saving folder.
             loss_elt                  (bool): compute the loss in the finite elements space.
             save_signals              (bool): save the 1D signals.
             save_outputs              (bool): save the forwar-backwards parameters.
             save_model                (bool): save the models weights.
+            save_hist                 (bool): save the models optimisation history.
         """
         super(FBRestNet, self).__init__() 
         self.model_id = model_id  
@@ -131,9 +136,11 @@ class FBRestNet(nn.Module):
         # saving info
         self.model_folder = model_folder
         self.dataset_folder = dataset_folder
+        self.opt_hist_folder = opt_hist_folder
         self.save_signals = save_signals
         self.save_outputs = save_outputs
         self.save_model = save_model
+        self.save_hist = save_hist
         self.loss_elt   = loss_elt
         # requires regularisation
         self.regul      = (noise>0)&(self.physics.m>20)
@@ -444,17 +451,16 @@ class FBRestNet(nn.Module):
         plt.show()
         #
         print("Final Lipschitz constant = ",lip_cste[-1])
-        # Export lip curve
-        if self.save_outputs:
-            Export_Data(
-                np.linspace(0,nb_val-1,nb_val),lip_cste,self.dataset_folder+'data',
-                'lip{}_{}_{}_{}'.format(self.physics.nx,self.physics.m,self.physics.a,self.physics.p), header=False
-            )
-            np.save(
-                self.dataset_folder + 'data/'+'hyp_params{}_{}_{}_{}.npy'.format(
-                    self.physics.nx,self.physics.m,self.physics.a,self.physics.p
-                ), np.array(hyper_params_list)
-            )
+
+        if self.save_hist:
+            opt_hist = {
+                'lipschitz':lip_cste,
+                'loss_train':loss_train,
+                'loss_val':loss_val,
+                'fb_params':np.array(hyper_params_list)
+            }
+            np.save(self.opt_hist_folder+self.model_id+'opt_hist.npy', opt_hist)
+        
         # Save model
         if self.save_model:
             torch.save(self.model.state_dict(), self.model_folder+self.model_id+'weights.pt')
