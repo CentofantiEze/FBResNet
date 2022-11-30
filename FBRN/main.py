@@ -287,14 +287,14 @@ class FBRestNet(nn.Module):
         #
         train_loader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True)
         val_loader   = DataLoader(val_dataset, batch_size=1, shuffle=False)
-        # Plot the output with and without noise
-        plt.plot(save_blurred_n[0],label='Noisy')
-        plt.plot(save_blurred[0],label='Noiseless')
-        plt.legend()
-        plt.title('Output signal')
-        plt.show()
         
-
+        # # Plot the output with and without noise
+        # plt.plot(save_blurred_n[0],label='Noisy')
+        # plt.plot(save_blurred[0],label='Noiseless')
+        # plt.legend()
+        # plt.title('Output signal')
+        # plt.show()
+        
         return train_loader, val_loader
 #========================================================================================================
 #========================================================================================================
@@ -424,7 +424,6 @@ class FBRestNet(nn.Module):
                     loss_init[epoch//self.freq_val] = loss_init[epoch//self.freq_val]/i
                 # print stat
                 print("epoch : ", epoch," ----- ","validation : ",'{:.6}'.format(loss_val[epoch//self.freq_val]))
-                print("    ----- initial error : ",'{:.6}'.format(loss_init[epoch//self.freq_val]))
                 # Test Lipschitz
                 lip_cste[epoch//self.freq_val] = self.model.Lipschitz()
                 # Get hyperparams at the end of epoch
@@ -433,22 +432,22 @@ class FBRestNet(nn.Module):
                 lambda_vec = [np.squeeze(self.model.Layers[layer_id].gamma_reg[0]).item() for layer_id in range(self.nb_blocks)]
                 hyper_params = np.stack((np.array(mu_vec),np.array(tau_vec),np.array(lambda_vec)))
                 hyper_params_list.append(hyper_params)
-
+        print("    ----- initial error : ",'{:.6}'.format(loss_init[-1]))
             
         #=======================
         # training is finished
-        print('-----------------------------------------------------------------')
+        print('--------------------------------------------')
         print('Training is done.')
-        print('-----------------------------------------------------------------')
+        print('--------------------------------------------')
         
-        # Plots
-        fig, (ax1, ax2) = plt.subplots(1, 2)
-        ax1.plot(np.linspace(0,nb_epochs-1,nb_epochs),loss_train,label = 'train')
-        ax1.plot(np.linspace(0,nb_epochs-1,nb_val),loss_val,label = 'val')
-        ax1.legend()
-        ax2.plot(np.linspace(0,nb_val-1,nb_val),lip_cste,'r-')
-        ax2.set_title("Lipschitz constant")
-        plt.show()
+        # # Plots
+        # fig, (ax1, ax2) = plt.subplots(1, 2)
+        # ax1.plot(np.linspace(0,nb_epochs-1,nb_epochs),loss_train,label = 'train')
+        # ax1.plot(np.linspace(0,nb_epochs-1,nb_val),loss_val,label = 'val')
+        # ax1.legend()
+        # ax2.plot(np.linspace(0,nb_val-1,nb_val),lip_cste,'r-')
+        # ax2.set_title("Lipschitz constant")
+        # plt.show()
         #
         print("Final Lipschitz constant = ",lip_cste[-1])
 
