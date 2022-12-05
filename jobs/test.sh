@@ -15,11 +15,11 @@ python ../scripts/FBRN_click.py \
     --im_set Set1 \
     --noise 0.05 \
     --constraint cube \
-    --train_size 200 \
-    --val_size 50 \
+    --train_size 70 \
+    --val_size 30 \
     --batch_size 1 \
     --lr 1e-3 \
-    --nb_epochs 50 \
+    --nb_epochs 15 \
     --freq_val 1 \
     --loss_elt False \
     --save_signals False \
