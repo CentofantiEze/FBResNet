@@ -32,10 +32,15 @@ class cardan(torch.autograd.Function):
         #initialize variables
         dtype             = torch.FloatTensor
         size              = xtilde.size()
-        x1,x2,x3          = torch.zeros(size).type(dtype),torch.zeros(size).type(dtype),torch.zeros(size).type(dtype)   
+        x1,x2,x3          = torch.zeros(size).type(dtype),torch.zeros(size).type(dtype),torch.zeros(size).type(dtype)        
         crit,crit_compare = torch.zeros(size).type(dtype),torch.zeros(size).type(dtype)
-        sol               = torch.zeros(size).type(dtype),
+        sol               = torch.zeros(size).type(dtype)
         torch_one         = torch.ones(size).type(dtype)
+        #send tensors to device (GPU if available)
+        x1,x2,x3          = x1.to(xtilde.device), x2.to(xtilde.device), x3.to(xtilde.device)
+        crit, crit_compare= crit.to(xtilde.device), crit_compare.to(xtilde.device)
+        sol               = sol.to(xtilde.device)
+        torch_one         = torch_one.to(xtilde.device)
         #set coefficients
         a     = -(xmin+xmax+xtilde)
         b     = xmin*xmax + xtilde*(xmin+xmax) - 2*gamma_mu
@@ -51,8 +56,8 @@ class cardan(torch.autograd.Function):
         z1      = -q[ind]/2
         z2      = torch.sqrt(delta[ind])
         u       = (z1+z2).sign() * torch.pow((z1+z2).abs(),1/3)
-        v       = (z1-z2).sign() * torch.pow((z1-z2).abs(),1/3) 
-        x1[ind] = u+v   
+        v       = (z1-z2).sign() * torch.pow((z1-z2).abs(),1/3)
+        x1[ind] = u+v
         x2[ind] = -(u + v)/2 ; #real part of the complex solution
         x3[ind] = -(u + v)/2 ; #real part of the complex solution
         #########################################################################

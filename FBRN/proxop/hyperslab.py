@@ -43,13 +43,18 @@ class cardan_slab(torch.autograd.Function):
         crit,crit_compare = torch.zeros(n,1,1).type(dtype),torch.zeros(n,1,1).type(dtype)
         sol               = torch.zeros(n,1,nx).type(dtype)
         kappa             = torch.zeros(n,1,1).type(dtype)
+        #send tensors to device (GPU if available)
+        x1,x2,x3          = x1.to(xtilde.device),x2.to(xtilde.device),x3.to(xtilde.device)
+        crit, crit_compare= crit.to(xtilde.device),crit_compare.to(xtilde.device)
+        sol, kappa        = sol.to(xtilde.device), kappa.to(xtilde.device)
         xmin              = 0
         xmax              = 1
         u                 = 1/nx**2*torch.linspace(1,nx,nx)
+        u                 = u.to(xtilde.device)
         norm_u            = torch.norm(u)**2
         uTx               = torch.matmul(xtilde,u).view(n,1,1)
-        torch_u           = u.view(1,1,-1)+torch.zeros(n,1,nx).type(dtype)#broadcast
-        torch_one         = torch.ones(n,1,1).type(dtype)
+        torch_u           = u.view(1,1,-1)+torch.zeros(n,1,nx).type(dtype).to(xtilde.device)#broadcast
+        torch_one         = torch.ones(n,1,1).type(dtype).to(xtilde.device)
         #set coefficients
         a     = -(xmin+xmax+uTx)
         b     = xmin*xmax + uTx*(xmin+xmax) - 2*gamma_mu*norm_u
@@ -119,7 +124,7 @@ class cardan_slab(torch.autograd.Function):
         crit_compare[ind]   = -(torch.log(uTp2[ind]-xmin)+torch.log(xmax-uTp2[ind]))
         crit_compare        = 0.5*torch.norm(p2-xtilde,dim=2).view(n,1,1)**2+gamma_mu*crit_compare
         # Select solution between p1 and p2
-        ind                      = (crit_compare<=crit) + torch.zeros(n,1,nx)#broadcasting
+        ind                      = (crit_compare<=crit) + torch.zeros(n,1,nx).to(xtilde.device)#broadcasting
         ind                      = ind>0
         sol[ind]                 = p2[ind]
         kappa[crit_compare<=crit]= x2[crit_compare<=crit]
@@ -133,7 +138,7 @@ class cardan_slab(torch.autograd.Function):
         crit_compare[ind]   = -(torch.log(uTp3[ind]-xmin)+torch.log(xmax-uTp3[ind]))
         crit_compare = 0.5*torch.norm(p3-xtilde,dim=2).view(n,1,1)**2+gamma_mu*crit_compare
         # Select solution between p3 and (p2,p1)
-        ind                 = (crit_compare<=crit)+ torch.zeros(n,1,nx)#broadcasting
+        ind                 = (crit_compare<=crit)+ torch.zeros(n,1,nx).to(xtilde.device)#broadcasting
         ind                 = ind>0
         sol[ind]            = p3[ind]
         kappa[crit_compare<=crit]= x3[crit_compare<=crit]
@@ -142,7 +147,7 @@ class cardan_slab(torch.autograd.Function):
         #test xmin+1e-10
         crit_compare             = 0.5*torch.norm(xtilde-xmin-1e-10,dim=2).view(n,1,1)**2-gamma_mu*(
             torch.log(1e-10*torch_one)+torch.log((xmax-xmin-1e-10)*torch_one))
-        ind                      = (crit_compare<=crit)+ torch.zeros(n,1,nx)#broadcasting  
+        ind                      = (crit_compare<=crit)+ torch.zeros(n,1,nx).to(xtilde.device)#broadcasting  
         ind                      = ind>0  
         sol[ind]                 = 0*sol[ind]+(xmin+1e-10)
         kappa[crit_compare<=crit]= uTx
@@ -151,7 +156,7 @@ class cardan_slab(torch.autograd.Function):
         #test xmax-1e-10
         crit_compare             = 0.5*torch.norm(xtilde-xmax+1e-10,dim=2).view(n,1,1)**2-gamma_mu*(
             torch.log(1e-10*torch_one)+torch.log((xmax-xmin-1e-10)*torch_one))
-        ind                      = (crit_compare<=crit)+ torch.zeros(n,1,nx)#broadcasting
+        ind                      = (crit_compare<=crit)+ torch.zeros(n,1,nx).to(xtilde.device)#broadcasting
         ind                      = ind>0
         sol[ind]                 = 0*sol[ind]+(xmax-1e-10)
         kappa[crit_compare<=crit]= uTx[crit_compare<=crit]
@@ -164,7 +169,7 @@ class cardan_slab(torch.autograd.Function):
         crit_compare[~uTx_ok]  = np.inf
         crit_compare[uTx_ok]   = -(torch.log(xmax-uTx[uTx_ok])+torch.log(uTx[uTx_ok]-xmin))
         crit_compare           = gamma_mu*crit_compare
-        ind                    = (crit_compare<crit)+ torch.zeros(n,1,nx)#broadcasting
+        ind                    = (crit_compare<crit)+ torch.zeros(n,1,nx).to(xtilde.device)#broadcasting
         ind                    = ind>0
         sol[ind]               = xtilde[ind]
         kappa[crit_compare<=crit]= uTx[crit_compare<=crit]
