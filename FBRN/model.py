@@ -58,7 +58,8 @@ class Block(torch.nn.Module):
         """
         super(Block, self).__init__()
         #
-        self.eigv     = torch.FloatTensor(exp.eigm)
+        #self.eigv     = torch.FloatTensor(exp.eigm)
+        self.register_buffer('eigv', torch.FloatTensor(exp.eigm))
         self.nx       = exp.nx
         self.m        = exp.m
         self.a        = exp.a
@@ -119,8 +120,8 @@ class Block(torch.nn.Module):
             reg  = self.cnn_reg(x_b)
         else :
             reg  = self.reg
-        # Gradient descent parameter 
-        gamma    = 1.0*self.soft(self.gamma)/torch.amax(self.eigv**(-2*self.a)+reg*self.eigv**(2*self.p))
+        # Gradient descent parameter
+        gamma    = 1.0*self.soft(self.gamma)/torch.amax(Variable(self.eigv)**(-2*self.a)+reg*Variable(self.eigv)**(2*self.p))
         # compute x_tilde
         x_tilde = x - gamma*self.Grad(reg, x, x_b)
         # project in finite element basis

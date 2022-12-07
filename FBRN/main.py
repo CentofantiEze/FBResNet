@@ -329,7 +329,7 @@ class FBRestNet(nn.Module):
         return train_loader, val_loader
 #========================================================================================================
 #========================================================================================================    
-    def train(self,train_set,val_set,test_lipschitz=True,device=torch.device('cpu')):
+    def train(self,train_set,val_set,device='cpu',test_lipschitz=True):
         """
         Trains FBRestNet.
         Parameters
