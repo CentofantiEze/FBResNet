@@ -329,7 +329,7 @@ class FBRestNet(nn.Module):
         return train_loader, val_loader
 #========================================================================================================
 #========================================================================================================    
-    def train(self,train_set,val_set,test_lipschitz=True):
+    def train(self,train_set,val_set,test_lipschitz=True,device=torch.device('cpu')):
         """
         Trains FBRestNet.
         Parameters
@@ -371,6 +371,8 @@ class FBRestNet(nn.Module):
                 tTTinv   = MyMatmul(inv)
                 x_init   = tTTinv(y) # no filtration of high frequences
                 x_init   = Variable(x_init,requires_grad=False)
+                # load data on the device (GPU if available)
+                x_init, x_bias = x_init.to(device), x_bias.to(device)
                 # prediction
                 x_pred    = self.model(x_init,x_bias) 
                 # Computes and prints loss
@@ -405,6 +407,8 @@ class FBRestNet(nn.Module):
                         tTTinv   = MyMatmul(inv)
                         x_init   = tTTinv(y) # no filtration of high frequences
                         x_init   = Variable(x_init,requires_grad=False)
+                        # load data on the device (GPU if available)
+                        x_init, x_bias = x_init.to(device), x_bias.to(device)
                         # prediction
                         x_pred  = self.model(x_init,x_bias).detach()
                         # computes loss on validation set

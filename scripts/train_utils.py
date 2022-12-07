@@ -2,7 +2,7 @@
 import numpy as np
 #from torch.autograd import Variable
 #from tqdm import tqdm
-#import torch
+import torch
 import matplotlib.pyplot as plt
 #import matplotlib as mpl
 import seaborn as sns
@@ -129,7 +129,12 @@ def train_eval_plot(**args):
         print('\t{0:<18}->'.format(key), args[key])
 
     # Print GPU info (if available)
-    ### to do ###
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print('Current device: {}'.format(device))
+    if torch.cuda.is_available():
+        print('GPU found -> {}'.format(torch.cuda.get_device_name(0)))
+    else:
+        print('Disclaimer : all GPUs appearing in this work are fictitious. Any resemblance to real GPUs is purely coincidental.')
 
     # Create the model
     print('Creating the model...')
@@ -161,6 +166,9 @@ def train_eval_plot(**args):
         save_hist=args['save_hist']
     )
 
+    # Place the model on the device
+    model.to(device)
+
     # Create datasets
     print('Generating datsets...')
     train_set, val_set = model.CreateDataSet()
@@ -169,7 +177,7 @@ def train_eval_plot(**args):
     if args['train_opt']:
         print('Training the model...')
         start_time = time.time()
-        model.train(train_set,val_set)
+        model.train(train_set,val_set,device)
         train_time = time.time() - start_time
         print('Total training time: {}h {}min'.format(int(train_time/3600),int(train_time%3600 /60)))
 
