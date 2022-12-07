@@ -408,7 +408,7 @@ class FBRestNet(nn.Module):
                         x_init   = tTTinv(y) # no filtration of high frequences
                         x_init   = Variable(x_init,requires_grad=False)
                         # load data on the device (GPU if available)
-                        x_init, x_bias = x_init.to(device), x_bias.to(device)
+                        x_init, x_bias, x_true = x_init.to(device), x_bias.to(device), x_true.to(device)
                         # prediction
                         x_pred  = self.model(x_init,x_bias).detach()
                         # computes loss on validation set
