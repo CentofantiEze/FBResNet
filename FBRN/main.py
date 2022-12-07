@@ -132,7 +132,7 @@ class FBRestNet(nn.Module):
         self.val_size   = val_size
         self.batch_size = batch_size 
         self.im_set     = im_set
-        self.loss_fn    = torch.nn.MSELoss(reduction='mean')
+        self.loss_fn    = torch.nn.MSELoss(reduction='mean').cuda() if torch.cuda.is_available() else torch.nn.MSELoss(reduction='mean')
         # saving info
         self.model_folder = model_folder
         self.dataset_folder = dataset_folder
@@ -372,7 +372,7 @@ class FBRestNet(nn.Module):
                 x_init   = tTTinv(y) # no filtration of high frequences
                 x_init   = Variable(x_init,requires_grad=False)
                 # load data on the device (GPU if available)
-                x_init, x_bias = x_init.to(device), x_bias.to(device)
+                x_init, x_bias, x_true = x_init.to(device), x_bias.to(device), x_true.to(device)
                 # prediction
                 x_pred    = self.model(x_init,x_bias) 
                 # Computes and prints loss

@@ -135,8 +135,8 @@ class Block(torch.nn.Module):
         x_tilde = self.Peig(x_tilde)
         #
         # save
-        self.gamma_reg = [gamma.detach().numpy(),reg.detach().numpy()]
-        self.mu        = mu.detach().numpy()
+        self.gamma_reg = [gamma.to('cpu').detach().numpy(),reg.to('cpu').detach().numpy()]
+        self.mu        = mu.to('cpu').detach().numpy()
         if np.isnan(self.gamma_reg[0]):
             print("sos")
         return x_tilde 
