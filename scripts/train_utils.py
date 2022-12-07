@@ -168,6 +168,7 @@ def train_eval_plot(**args):
 
     # Place the model on the device
     model.to(device)
+    model.model.to(device)
 
     # Create datasets
     print('Generating datsets...')
