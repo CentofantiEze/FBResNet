@@ -200,14 +200,15 @@ class cardan_slab(torch.autograd.Function):
         n                    = kappa.size()[0]
         nx                   = grad_output.size()[2]
         u                    = 1/nx**2*torch.linspace(1,nx,nx)
+        u                    = u.to(x.device)
         norm_u               = torch.norm(u)**2
-        torch_u              = u.view(1,1,-1)+torch.zeros(n,1,nx)#broadcast
+        torch_u              = u.view(1,1,-1)+torch.zeros(n,1,nx).to(x.device)#broadcast
         denom                = (xmin-kappa)*(xmax-kappa)\
                               -(kappa-uTx)*(xmin+xmax-2*kappa)\
                               -2*gamma_mu*norm_u 
         #
         idx                  = (denom.abs()>1e-7)
-        ind                  = (denom.abs()>1e-7)+ torch.zeros(n,1,nx)#broadcasting
+        ind                  = (denom.abs()>1e-7)+ torch.zeros(n,1,nx).to(x.device)#broadcasting
         ind                  = ind>0
         denom[~idx]          = denom[~idx]+1
         grad_input_gamma_mu  = (2*kappa-(xmin+xmax))/denom*torch_u
@@ -236,4 +237,4 @@ class cardan_slab(torch.autograd.Function):
         grad_input_gamma_mu = Variable(grad_input_gamma_mu,requires_grad=True)
         grad_input_u        = Variable(grad_input_u,requires_grad=True)
         
-        return grad_input_gamma_mu, grad_input_u, None
+        return grad_input_gamma_mu.to(gamma_mu.device), grad_input_u.to(u.device), None

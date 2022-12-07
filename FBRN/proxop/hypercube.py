@@ -188,4 +188,4 @@ class cardan(torch.autograd.Function):
         grad_input_gamma_mu = Variable(grad_input_gamma_mu.type(dtype),requires_grad=True)
         grad_input_u        = Variable(grad_input_u.type(dtype),requires_grad=True)
         
-        return grad_input_gamma_mu, grad_input_u, None
+        return grad_input_gamma_mu.to(gamma_mu.device), grad_input_u.to(u.device), None
