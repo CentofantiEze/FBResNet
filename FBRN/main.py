@@ -426,16 +426,16 @@ class FBRestNet(nn.Module):
                     # normalisation
                     loss_val[epoch//self.freq_val] = loss_val[epoch//self.freq_val]/i
                     loss_init[epoch//self.freq_val] = loss_init[epoch//self.freq_val]/i
-                # print stat
-                print("epoch : ", epoch," ----- ","validation : ",'{:.6}'.format(loss_val[epoch//self.freq_val]))
-                # Test Lipschitz
-                lip_cste[epoch//self.freq_val] = self.model.Lipschitz()
-                # Get hyperparams at the end of epoch
-                mu_vec = [np.squeeze(self.model.Layers[layer_id].mu).item() for layer_id in range(self.nb_blocks)]
-                tau_vec = [np.squeeze(self.model.Layers[layer_id].gamma_reg[1]).item() for layer_id in range(self.nb_blocks)]
-                lambda_vec = [np.squeeze(self.model.Layers[layer_id].gamma_reg[0]).item() for layer_id in range(self.nb_blocks)]
-                hyper_params = np.stack((np.array(mu_vec),np.array(tau_vec),np.array(lambda_vec)))
-                hyper_params_list.append(hyper_params)
+                    # print stat
+                    print("epoch : ", epoch," ----- ","validation : ",'{:.6}'.format(loss_val[epoch//self.freq_val]))
+                    # Test Lipschitz
+                    lip_cste[epoch//self.freq_val] = self.model.Lipschitz()
+                    # Get hyperparams at the end of epoch
+                    mu_vec = [np.squeeze(self.model.Layers[layer_id].mu).item() for layer_id in range(self.nb_blocks)]
+                    tau_vec = [np.squeeze(self.model.Layers[layer_id].gamma_reg[1]).item() for layer_id in range(self.nb_blocks)]
+                    lambda_vec = [np.squeeze(self.model.Layers[layer_id].gamma_reg[0]).item() for layer_id in range(self.nb_blocks)]
+                    hyper_params = np.stack((np.array(mu_vec),np.array(tau_vec),np.array(lambda_vec)))
+                    hyper_params_list.append(hyper_params)
         print("    ----- initial error : ",'{:.6}'.format(loss_init[-1]))
             
         #=======================
