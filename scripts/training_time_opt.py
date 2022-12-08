@@ -13,7 +13,7 @@ import multiprocessing as mp
 from FBRN.myfunc import Physics
 from FBRN.main import FBRestNet
 
-def train_eval_plot(**args):
+def main():
     
     # Print GPU info (if available)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -33,12 +33,12 @@ def train_eval_plot(**args):
     experimentation=Physics(2000,50,1,1),
     nb_blocks=20,
     im_set="Set1",
-    noise = 0.05,        
-    constraint = 'cube',  
+    noise = 0.05,
+    constraint = 'cube',
     train_size=400,
     val_size=200,
-    batch_size=1,
-    lr=1e-3, 
+    batch_size=64,
+    lr=1e-3,
     nb_epochs=10,
     freq_val=1,
     loss_elt=False,
@@ -55,15 +55,25 @@ def train_eval_plot(**args):
     # Create datasets
     print('Generating datsets...')
     train_set, val_set = model.CreateDataSet()
-
     train_set.pin_memory = True
-    for num_workers in range(2, mp.cpu_count(), 2):  
+    print('pin_memory =', train_set.pin_memory)
+    print('batch_size =', train_set.batch_size)
+    print('number of cores in cpu', mp.cpu_count())
+    for num_workers in range(0, 10, 2):
         train_set.num_workers = num_workers
-        start = time()
+        start = time.time()
         for epoch in range(1, 3):
-            for i, data in enumerate(train_set, 0):
-                pass
-        end = time()
+            for i, (x,y) in enumerate(train_set, 0):
+                #time.sleep(0.1)
+                x = x.to(device)
+                y = y.to(device)
+                if epoch ==1 and i==0:
+                    print(x.device)
+        end = time.time()
         print("Finish with:{} second, num_workers={}".format(end - start, num_workers))
     
     print('\nDone!')
+
+
+if __name__ == '__main__':
+    main()
