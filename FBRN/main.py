@@ -364,16 +364,16 @@ class FBRestNet(nn.Module):
             # goes through all minibatches
             for i,minibatch in enumerate(train_set):
                 [y, x]    = minibatch    # get the minibatch
-                x_bias    = Variable(y,requires_grad=False)
-                x_true    = Variable(x,requires_grad=False) 
+                x_bias    = Variable(y.to(device),requires_grad=False)
+                x_true    = Variable(x.to(device),requires_grad=False) 
                 # definition of the initialisation tensor
-                x_init   = torch.zeros(x_bias.size())
+                x_init   = torch.zeros(x_bias.size()).to(device)
                 inv      = np.diag(self.physics.eigm**(2*self.physics.a))
-                tTTinv   = MyMatmul(inv)
-                x_init   = tTTinv(y) # no filtration of high frequences
-                x_init   = Variable(x_init,requires_grad=False)
+                tTTinv   = MyMatmul(inv).to(device)
+                x_init   = tTTinv(x_bias) # no filtration of high frequences
+                x_init   = Variable(x_init.to(device),requires_grad=False)
                 # load data on the device (GPU if available)
-                x_init, x_bias, x_true = x_init.to(device), x_bias.to(device), x_true.to(device)
+                #x_init, x_bias, x_true = x_init.to(device), x_bias.to(device), x_true.to(device)
                 # prediction
                 x_pred    = self.model(x_init,x_bias) 
                 # Computes and prints loss
