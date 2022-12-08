@@ -385,11 +385,10 @@ class FBRestNet(nn.Module):
                 loss               = self.loss_fn(x_pred,x_true)
                 norm               = torch.norm(x_true.detach())
                 loss_train[epoch] += torch.Tensor.item(loss/norm)
-                # 
                 # sets the gradients to zero, performs a backward pass, and updates the weights.
-                optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
+                optimizer.zero_grad(set_to_none=True)
             # normalisation
             loss_train[epoch] = loss_train[epoch]/i
             #
