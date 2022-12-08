@@ -355,10 +355,11 @@ class FBRestNet(nn.Module):
         for epoch in range(0,self.nb_epochs): 
             # sets training mode
             self.model.train()
-            # modifies learning rate
-            if epoch>0:
-                lr_i      = self.lr_i*0.98 
-                optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad,self.model.parameters()), lr=lr_i)
+            # Do NOT restart the optimizer each epoch!!!!
+            # # modifies learning rate
+            # if epoch>0:
+            #     lr_i      = self.lr_i*0.98 
+            #     optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad,self.model.parameters()), lr=lr_i)
             # TRAINING
             # goes through all minibatches
             for i,minibatch in enumerate(train_set):
