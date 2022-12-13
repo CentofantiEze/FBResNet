@@ -390,7 +390,7 @@ class FBRestNet(nn.Module):
                 optimizer.step()
                 optimizer.zero_grad(set_to_none=True)
             # normalisation
-            loss_train[epoch] = loss_train[epoch]/i
+            #loss_train[epoch] = loss_train[epoch]/i
             #
             # VALIDATION AND STATS
             if epoch%self.freq_val==0:
@@ -424,8 +424,8 @@ class FBRestNet(nn.Module):
                         loss_val[epoch//self.freq_val] += torch.Tensor.item(loss/norm)
                         loss_init[epoch//self.freq_val]+= torch.Tensor.item(loss_in/norm)
                     # normalisation
-                    loss_val[epoch//self.freq_val] = loss_val[epoch//self.freq_val]/i
-                    loss_init[epoch//self.freq_val] = loss_init[epoch//self.freq_val]/i
+                    # loss_val[epoch//self.freq_val] = loss_val[epoch//self.freq_val]/i
+                    # loss_init[epoch//self.freq_val] = loss_init[epoch//self.freq_val]/i
                     # print stat
                     print("epoch : ", epoch," ----- ","validation : ",'{:.6}'.format(loss_val[epoch//self.freq_val]))
                     # Test Lipschitz
