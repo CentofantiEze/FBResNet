@@ -121,7 +121,7 @@ class Block(torch.nn.Module):
         else :
             reg  = self.reg
         # Gradient descent parameter
-        gamma    = 1.0*self.soft(self.gamma)/torch.amax(Variable(self.eigv)**(-2*self.a)+reg*Variable(self.eigv)**(2*self.p))
+        gamma    = 1.0*self.soft(self.gamma)/torch.amax(Variable(self.eigv)**(-2*self.a)+reg*Variable(self.eigv)**(2*self.p), dim=(1,2),keepdim=True)
         # compute x_tilde
         x_tilde = x - gamma*self.Grad(reg, x, x_b)
         # project in finite element basis
@@ -135,8 +135,9 @@ class Block(torch.nn.Module):
         x_tilde = self.Peig(x_tilde)
         #
         # save
-        self.gamma_reg = [gamma.to('cpu').detach().numpy(),reg.to('cpu').detach().numpy()]
-        self.mu        = mu.to('cpu').detach().numpy()
+        # Just keep the params for the first signal of the batch
+        self.gamma_reg = [gamma.to('cpu').detach().numpy()[0:1],reg.to('cpu').detach().numpy()[0:1]]
+        self.mu        = mu[0:1].to('cpu').detach().numpy()
         if np.isnan(self.gamma_reg[0]):
             print("sos")
         return x_tilde 
@@ -217,6 +218,7 @@ class MyModel(torch.nn.Module):
                 reg   = self.Layers[i].gamma_reg[1]
                 mu    = 1
                 # Computes the ref eigenvals
+                #########3print(eig_ref.shape, gamma.shape, eig_T.shape, reg.shape, eig_D.shape)
                 eig_ref[i,:] = 1 - gamma*(eig_T+reg*eig_D)
                 # Step 2.0 Computes beta_i,p
                 for p in range(0,m):
