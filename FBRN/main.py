@@ -132,7 +132,7 @@ class FBRestNet(nn.Module):
         self.val_size   = val_size
         self.batch_size = batch_size 
         self.im_set     = im_set
-        self.loss_fn    = torch.nn.MSELoss(reduction='mean').cuda() if torch.cuda.is_available() else torch.nn.MSELoss(reduction='mean')
+        self.loss_fn    = torch.nn.MSELoss(reduction='none').cuda() if torch.cuda.is_available() else torch.nn.MSELoss(reduction='none')
         # saving info
         self.model_folder = model_folder
         self.dataset_folder = dataset_folder
@@ -286,7 +286,7 @@ class FBRestNet(nn.Module):
         train_dataset, val_dataset = random_split(dataset, [self.train_size, self.val_size])
         #
         train_loader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True)
-        val_loader   = DataLoader(val_dataset, batch_size=1, shuffle=False)
+        val_loader   = DataLoader(val_dataset, batch_size=len(val_dataset), shuffle=False)
         
         # # Plot the output with and without noise
         # plt.plot(save_blurred_n[0],label='Noisy')
@@ -324,7 +324,7 @@ class FBRestNet(nn.Module):
         train_dataset, val_dataset = random_split(dataset, [self.train_size, self.val_size])
         #
         train_loader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True)
-        val_loader   = DataLoader(val_dataset, batch_size=1, shuffle=False)
+        val_loader   = DataLoader(val_dataset, batch_size=len(val_dataset), shuffle=False)
         #
         return train_loader, val_loader
 #========================================================================================================
@@ -382,15 +382,19 @@ class FBRestNet(nn.Module):
                     x_pred = self.model.Layers[0].Pelt(x_pred)
                     x_true = self.model.Layers[0].Pelt(x_true)
                 # Compute the loss
-                loss               = self.loss_fn(x_pred,x_true)
-                norm               = torch.norm(x_true.detach())
-                loss_train[epoch] += torch.Tensor.item(loss/norm)
-                # sets the gradients to zero, performs a backward pass, and updates the weights.
-                loss.backward()
+                loss               = torch.sum(self.loss_fn(x_pred,x_true), dim=(1,2))
+                norm               = torch.norm(x_true, dim=(1,2))
+                loss_norm          = torch.mean(torch.div(loss,norm))
+                loss_train[epoch]  += torch.Tensor.item(loss_norm.detach())*x_true.shape[0]
+                # loss               = self.loss_fn(x_pred,x_true)
+                # norm               = torch.norm(x_true.detach(), dim=(2))
+                # loss_train[epoch] += torch.Tensor.item(loss/norm)
+                # sets the gradients to zero, performs a backward pass, and updates the weights. 
+                loss_norm.backward()
                 optimizer.step()
                 optimizer.zero_grad(set_to_none=True)
             # normalisation
-            #loss_train[epoch] = loss_train[epoch]/i
+            loss_train[epoch] = loss_train[epoch]/self.train_size
             #
             # VALIDATION AND STATS
             if epoch%self.freq_val==0:
@@ -418,16 +422,21 @@ class FBRestNet(nn.Module):
                             x_true = self.model.Layers[0].Pelt(x_true)
                             x_init = self.model.Layers[0].Pelt(x_init)
                         # Compute the loss
-                        norm    = torch.norm(x_true.detach())
-                        loss    = self.loss_fn(x_pred, x_true)
-                        loss_in = self.loss_fn(x_init, x_true)
-                        loss_val[epoch//self.freq_val] += torch.Tensor.item(loss/norm)
-                        loss_init[epoch//self.freq_val]+= torch.Tensor.item(loss_in/norm)
+                        loss               = torch.sum(self.loss_fn(x_pred,x_true), dim=(1,2))
+                        norm               = torch.norm(x_true.detach(), dim=(1,2))
+                        loss_in            = torch.sum(self.loss_fn(x_init,x_true), dim=(1,2))
+                        loss_val[epoch//self.freq_val] += torch.mean(torch.div(loss,norm)) * loss.shape[0]
+                        loss_init[epoch//self.freq_val] += torch.mean(torch.div(loss_in,norm)) * loss_in.shape[0]
+                        # norm    = torch.norm(x_true.detach())
+                        # loss    = self.loss_fn(x_pred, x_true)
+                        # loss_in = self.loss_fn(x_init, x_true)
+                        # loss_val[epoch//self.freq_val] += torch.Tensor.item(loss/norm)
+                        # loss_init[epoch//self.freq_val]+= torch.Tensor.item(loss_in/norm)
                     # normalisation
-                    # loss_val[epoch//self.freq_val] = loss_val[epoch//self.freq_val]/i
-                    # loss_init[epoch//self.freq_val] = loss_init[epoch//self.freq_val]/i
+                    loss_val[epoch//self.freq_val] = loss_val[epoch//self.freq_val]/self.val_size
+                    loss_init[epoch//self.freq_val] = loss_init[epoch//self.freq_val]/self.val_size
                     # print stat
-                    print("epoch : ", epoch," ----- ","validation : ",'{:.6}'.format(loss_val[epoch//self.freq_val]))
+                    print("epoch : {:2d}".format(epoch)," ----- ","training : ",'{:.4f}'.format(loss_train[epoch]),"   validation : ",'{:.4f}'.format(loss_val[epoch//self.freq_val]))
                     # Test Lipschitz
                     lip_cste[epoch//self.freq_val] = self.model.Lipschitz()
                     # Get hyperparams at the end of epoch
@@ -469,7 +478,7 @@ class FBRestNet(nn.Module):
             torch.save(self.model.state_dict(), self.model_folder+self.model_id+'weights.pt')
 #========================================================================================================
 #========================================================================================================    
-    def test(self,data_set):    
+    def test(self,data_set,plot_opt=False):    
         """
         Computes the averaged error of the output on a dataset.
         Parameters
@@ -480,12 +489,14 @@ class FBRestNet(nn.Module):
             (float): averaged error
         """
         # initial
-        torch_zeros = Variable(torch.zeros(1,1,self.physics.m),requires_grad=False)
-        counter     = 0
+        if self.loss_elt:
+            torch_zeros = Variable(torch.zeros(1,1,self.physics.nx),requires_grad=False)
+        else:
+            torch_zeros = Variable(torch.zeros(1,1,self.physics.m),requires_grad=False)
         avrg        = 0
         avrg_in     = 0
         # filtering parameter
-        fmax     = 4*self.physics.m//5
+        #fmax     = 4*self.physics.m//5
         # gies through the minibatch
         with torch.no_grad():
             self.model.eval()
@@ -501,47 +512,69 @@ class FBRestNet(nn.Module):
                 x_init   = Variable(x_init,requires_grad=False)
                 # prediction
                 x_pred    = self.model(x_init,x_bias)
+                if self.loss_elt:
+                    # Compute the loss in the finite elements space
+                    x_pred = self.model.Layers[0].Pelt(x_pred)
+                    x_true = self.model.Layers[0].Pelt(x_true)
+                    x_init = self.model.Layers[0].Pelt(x_init)
                 # compute loss
-                loss   = torch.Tensor.item(self.loss_fn(x_pred, x_true))
-                norm   = torch.Tensor.item(self.loss_fn(torch_zeros, x_true))
-                loss_in= torch.Tensor.item(self.loss_fn(x_init, x_true))
+                loss    = torch.sum(self.loss_fn(x_pred,x_true), dim=(1,2))
+                norm    = torch.norm(x_true.detach(), dim=(1,2))
+                loss_in = torch.sum(self.loss_fn(x_init,x_true), dim=(1,2))
+                # loss   = torch.Tensor.item(self.loss_fn(x_pred, x_true))
+                # norm   = torch.Tensor.item(self.loss_fn(torch_zeros, x_true))
+                # loss_in= torch.Tensor.item(self.loss_fn(x_init, x_true))
                 # l_loss.append(loss/norm)
-                avrg    += loss/norm
-                avrg_in += loss_in/norm
-                counter += 1
+                avrg    += torch.mean(torch.div(loss,norm))*x_true.shape[0]
+                avrg_in += torch.mean(torch.div(loss_in,norm))*x_true.shape[0]
+            # Normalisation
+            avrg = avrg/ len(data_set.dataset)
+            avrg_in = avrg_in/ len(data_set.dataset)
+
         # Plots
-        xtc = x_true.numpy()[0,0]
-        xpc = x_pred.numpy()[0,0]
-        xic = x_init.numpy()[0,0]
-        xt  = self.physics.BasisChangeInv(xtc)
-        xp  = self.physics.BasisChangeInv(xpc)
-        xi  = self.physics.BasisChangeInv(xic)
-        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12,8))
-        fig.suptitle("Prediction results")
-        #ax1.plot(xtc,'+',label = 'true')
-        #ax1.plot(xpc,'kx',label = 'pred')
-        ax1.plot(xtc,label = 'true', linewidth=3)
-        ax1.plot(xic,label = 'init')
-        ax1.plot(xpc,label = 'pred')
-        ax1.set_xlabel('k')
-        ax1.legend()
-        #ax2.plot(np.linspace(0,1,self.physics.nx),xt,'+',label = 'true')
-        ax2.plot(np.linspace(0,1,self.physics.nx),xt,label = 'true', linewidth=3)
-        ax2.plot(np.linspace(0,1,self.physics.nx),xi,label = 'init')        
-        ax2.plot(np.linspace(0,1,self.physics.nx),xp,label = 'pred')
-        ax2.set_xlabel('t')
-        ax2.legend()
-        plt.show()
-        #
-        print("Erreur de sortie : ",avrg/counter)
-        print("Erreur initiale : ",avrg_in/counter)
-        loss_elt = self.loss_fn(self.physics.BasisChangeInv(x_pred), self.physics.BasisChangeInv(x_true))
-        init_loss_elt = self.loss_fn(self.physics.BasisChangeInv(x_init), self.physics.BasisChangeInv(x_true))
-        norm_elt = self.loss_fn(torch.zeros(1,1,self.physics.nx), self.physics.BasisChangeInv(x_true))
-        print('Finite element basis error: {}'.format(loss_elt/norm_elt))
-        print('Finite element basis init error: {}'.format(init_loss_elt/norm_elt))
-        # return 
-        return avrg/counter
+        if self.loss_elt:
+            xt = x_true.numpy()[0,0]
+            xp = x_pred.numpy()[0,0]
+            xi = x_init.numpy()[0,0]
+            xtc  = self.physics.BasisChange(xt)
+            xpc  = self.physics.BasisChange(xp)
+            xic  = self.physics.BasisChange(xi)
+        else: 
+            xtc = x_true.numpy()[0,0]
+            xpc = x_pred.numpy()[0,0]
+            xic = x_init.numpy()[0,0]
+            xt  = self.physics.BasisChangeInv(xtc)
+            xp  = self.physics.BasisChangeInv(xpc)
+            xi  = self.physics.BasisChangeInv(xic)
+        if plot_opt:
+            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12,8))
+            fig.suptitle("Prediction results")
+            #ax1.plot(xtc,'+',label = 'true')
+            #ax1.plot(xpc,'kx',label = 'pred')
+            ax1.plot(xtc,label = 'true', linewidth=3)
+            ax1.plot(xic,label = 'init')
+            ax1.plot(xpc,label = 'pred')
+            ax1.set_xlabel('k')
+            ax1.legend()
+            #ax2.plot(np.linspace(0,1,self.physics.nx),xt,'+',label = 'true')
+            ax2.plot(np.linspace(0,1,self.physics.nx),xt,label = 'true', linewidth=3)
+            ax2.plot(np.linspace(0,1,self.physics.nx),xi,label = 'init')        
+            ax2.plot(np.linspace(0,1,self.physics.nx),xp,label = 'pred')
+            ax2.set_xlabel('t')
+            ax2.legend()
+            plt.show()
+            #
+        print("Erreur de sortie : ",torch.Tensor.item(avrg))
+        print("Erreur initiale : ",torch.Tensor.item(avrg_in))
+        signals = {
+            "x_elt_true" : xt,
+            "x_elt_init" : xi,
+            "x_elt_pred" : xp,
+            "x_eig_true" : xtc,
+            "x_eig_init" : xic,
+            "x_eig_pred" : xpc
+        }
+        return avrg/len(data_set), signals
 #========================================================================================================
 #======================================================================================================== 
     def test_gauss(self, noise = 0.05):
