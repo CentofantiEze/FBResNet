@@ -104,6 +104,26 @@ def plot_fb_params(fb_params, figs_path_base):
     for i in range(3): ax[i].legend()
     plt.savefig(figs_path_base+'fb_params_evolution.pdf')
 
+def plot_preds(signals, figs_path_base):
+    nx = len(signals['x_elt_true'])
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12,8))
+    fig.suptitle("Prediction results")
+    
+    ax1.plot(signals['x_eig_true'],label = 'true', linewidth=3)
+    ax1.plot(signals['x_eig_init'],label = 'init')
+    ax1.plot(signals['x_eig_pred'],label = 'pred')
+    ax1.set_xlabel('k')
+    ax1.legend()
+    
+    ax2.plot(np.linspace(0,1,nx),signals['x_elt_true'],label = 'true', linewidth=3)
+    ax2.plot(np.linspace(0,1,nx),signals['x_elt_init'],label = 'init')        
+    ax2.plot(np.linspace(0,1,nx),signals['x_elt_pred'],label = 'pred')
+    ax2.set_xlabel('t')
+    ax2.legend()
+
+    plt.savefig(figs_path_base+'prediction.pdf')
+
+
 def train_eval_plot(**args):
     
     # Paths
@@ -143,6 +163,7 @@ def train_eval_plot(**args):
         dataset_folder=args['dataset_folder'],
         model_folder=output_path+'model/',
         opt_hist_folder=output_path+'opt_hist/',
+        results_folder=output_path+'results/',
         experimentation=Physics(
             args['n'],
             args['m'],
@@ -183,6 +204,9 @@ def train_eval_plot(**args):
         print('Total training time: {}h {}min'.format(int(train_time/3600),int(train_time%3600 /60)))
 
     # Evaluate the results
+    if args['test_opt']:
+        print('Evaluate the model...')
+        loss, signals = model.test(val_set)
 
     # Generate the plots
     if args['plot_opt']:
@@ -198,6 +222,8 @@ def train_eval_plot(**args):
         plot_lip(opt_hist['lipschitz'], figs_path_base)
         # Generate forward-backwards params plots
         plot_fb_params(opt_hist['fb_params'], figs_path_base)
+        # Plot one prediction
+        plot_preds(signals, figs_path_base)
 
     
     # Close the log file

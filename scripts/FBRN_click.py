@@ -48,6 +48,13 @@ import click
     help='Path to the optimisation history saving folder.'
 )
 @click.option(
+    '--results_folder',
+    default='../outputs/results/',
+    type=str,
+    help='Path to the test predictions saving folder.'
+
+)
+@click.option(
     '--figure_folder',
     default='../outputs/figures/',
     type=str,
