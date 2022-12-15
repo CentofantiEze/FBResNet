@@ -61,6 +61,7 @@ class FBRestNet(nn.Module):
         dataset_folder       (str): path to the Dataset folder.
         model_folder         (str): path to the pretrained model weigths.
         opt_hist_folder      (str): optimisation history saving folder.
+        results_folder       (str): test predictions saving folder.
         save_signals        (bool): save the 1D signals.
         save_outputs        (bool): save the forwar-backwards parameters.
         save_model          (bool): save the models weights.
@@ -76,6 +77,7 @@ class FBRestNet(nn.Module):
         dataset_folder = '../Datasets/',
         model_folder = '../outputs/models/',
         opt_hist_folder = '../outputs/opt_hist/',
+        results_folder = '../outputs/results/',
         experimentation=Physics(2000,50,1,1),
         nb_blocks=20,
         im_set="Set1",
@@ -111,6 +113,7 @@ class FBRestNet(nn.Module):
             dataset_folder             (str): path to the Dataset folder.
             model_folder               (str): path to the pretrained model weigths.
             opt_hist_folder            (str): optimisation history saving folder.
+            results_folder       (str): test predictions saving folder.
             loss_elt                  (bool): compute the loss in the finite elements space.
             save_signals              (bool): save the 1D signals.
             save_outputs              (bool): save the forwar-backwards parameters.
@@ -137,6 +140,7 @@ class FBRestNet(nn.Module):
         self.model_folder = model_folder
         self.dataset_folder = dataset_folder
         self.opt_hist_folder = opt_hist_folder
+        self.results_folder = results_folder
         self.save_signals = save_signals
         self.save_outputs = save_outputs
         self.save_model = save_model
@@ -347,8 +351,9 @@ class FBRestNet(nn.Module):
         lip_cste   = np.zeros(nb_val)
         hyper_params_list = []
         # defines the optimizer
-        lr_i       = self.lr_i
-        optimizer  = torch.optim.Adam(filter(lambda p: p.requires_grad,self.model.parameters()),lr=self.lr_i)   
+        #lr_i       = self.lr_i
+        #optimizer  = torch.optim.Adam(filter(lambda p: p.requires_grad,self.model.parameters()),lr=self.lr_i)   
+        optimizer  = torch.optim.SGD(self.model.parameters(),lr=self.lr_i)   
         # filtering parameter
         fmax     = 4*self.physics.m//5
         # trains for several epochs
@@ -383,7 +388,7 @@ class FBRestNet(nn.Module):
                     x_true = self.model.Layers[0].Pelt(x_true)
                 # Compute the loss
                 loss               = torch.sum(self.loss_fn(x_pred,x_true), dim=(1,2))
-                norm               = torch.norm(x_true, dim=(1,2))
+                norm               = torch.sum(x_true**2, dim=(1,2))
                 loss_norm          = torch.mean(torch.div(loss,norm))
                 loss_train[epoch]  += torch.Tensor.item(loss_norm.detach())*x_true.shape[0]
                 # loss               = self.loss_fn(x_pred,x_true)
@@ -423,7 +428,7 @@ class FBRestNet(nn.Module):
                             x_init = self.model.Layers[0].Pelt(x_init)
                         # Compute the loss
                         loss               = torch.sum(self.loss_fn(x_pred,x_true), dim=(1,2))
-                        norm               = torch.norm(x_true.detach(), dim=(1,2))
+                        norm               = torch.sum(x_true.detach()**2, dim=(1,2))
                         loss_in            = torch.sum(self.loss_fn(x_init,x_true), dim=(1,2))
                         loss_val[epoch//self.freq_val] += torch.mean(torch.div(loss,norm)) * loss.shape[0]
                         loss_init[epoch//self.freq_val] += torch.mean(torch.div(loss_in,norm)) * loss_in.shape[0]
@@ -495,6 +500,8 @@ class FBRestNet(nn.Module):
             torch_zeros = Variable(torch.zeros(1,1,self.physics.m),requires_grad=False)
         avrg        = 0
         avrg_in     = 0
+        x_pred_list = np.array([]).reshape(0,1,self.physics.nx)
+        x_true_list = np.array([]).reshape(0,1,self.physics.nx)
         # filtering parameter
         #fmax     = 4*self.physics.m//5
         # gies through the minibatch
@@ -519,7 +526,7 @@ class FBRestNet(nn.Module):
                     x_init = self.model.Layers[0].Pelt(x_init)
                 # compute loss
                 loss    = torch.sum(self.loss_fn(x_pred,x_true), dim=(1,2))
-                norm    = torch.norm(x_true.detach(), dim=(1,2))
+                norm    = torch.sum(x_true.detach()**2, dim=(1,2))
                 loss_in = torch.sum(self.loss_fn(x_init,x_true), dim=(1,2))
                 # loss   = torch.Tensor.item(self.loss_fn(x_pred, x_true))
                 # norm   = torch.Tensor.item(self.loss_fn(torch_zeros, x_true))
@@ -527,9 +534,21 @@ class FBRestNet(nn.Module):
                 # l_loss.append(loss/norm)
                 avrg    += torch.mean(torch.div(loss,norm))*x_true.shape[0]
                 avrg_in += torch.mean(torch.div(loss_in,norm))*x_true.shape[0]
+                # Save signals
+                if self.loss_elt is not True:
+                    x_pred = self.model.Layers[0].Pelt(x_pred)
+                    x_true = self.model.Layers[0].Pelt(x_true)
+                
+                x_true_list = np.concatenate([x_true_list, x_true.detach().numpy()], axis=0)
+                x_pred_list = np.concatenate([x_pred_list, x_pred.detach().numpy()], axis=0)
             # Normalisation
             avrg = avrg/ len(data_set.dataset)
             avrg_in = avrg_in/ len(data_set.dataset)
+        # Save the predictions
+        if self.save_outputs:
+            print('Saving predictions...')
+            np.save(self.results_folder+self.model_id+'predictions.npy', x_pred_list)
+            np.save(self.results_folder+self.model_id+'ground_true.npy', x_true_list)
 
         # Plots
         if self.loss_elt:
