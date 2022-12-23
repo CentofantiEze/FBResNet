@@ -538,6 +538,7 @@ class FBRestNet(nn.Module):
                 if self.loss_elt is not True:
                     x_pred = self.model.Layers[0].Pelt(x_pred)
                     x_true = self.model.Layers[0].Pelt(x_true)
+                    x_init = self.model.Layers[0].Pelt(x_init)
                 
                 x_true_list = np.concatenate([x_true_list, x_true.detach().numpy()], axis=0)
                 x_pred_list = np.concatenate([x_pred_list, x_pred.detach().numpy()], axis=0)
@@ -551,20 +552,12 @@ class FBRestNet(nn.Module):
             np.save(self.results_folder+self.model_id+'ground_true.npy', x_true_list)
 
         # Plots
-        if self.loss_elt:
-            xt = x_true.numpy()[0,0]
-            xp = x_pred.numpy()[0,0]
-            xi = x_init.numpy()[0,0]
-            xtc  = self.physics.BasisChange(xt)
-            xpc  = self.physics.BasisChange(xp)
-            xic  = self.physics.BasisChange(xi)
-        else: 
-            xtc = x_true.numpy()[0,0]
-            xpc = x_pred.numpy()[0,0]
-            xic = x_init.numpy()[0,0]
-            xt  = self.physics.BasisChangeInv(xtc)
-            xp  = self.physics.BasisChangeInv(xpc)
-            xi  = self.physics.BasisChangeInv(xic)
+        xt = x_true.numpy()[0,0]
+        xp = x_pred.numpy()[0,0]
+        xi = x_init.numpy()[0,0]
+        xtc  = self.physics.BasisChange(xt)
+        xpc  = self.physics.BasisChange(xp)
+        xic  = self.physics.BasisChange(xi)
         if plot_opt:
             fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12,8))
             fig.suptitle("Prediction results")
