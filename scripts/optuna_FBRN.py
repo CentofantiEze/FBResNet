@@ -105,6 +105,8 @@ def objective(trial, **args):
     train_set, val_set = model.CreateDataSet()
     # Train and evaluate the model
     model.train(train_set,val_set,device)
+    # Bring the model back to cpu
+    model.to('cpu')
     loss, _ = model.test(val_set)
 
     # Close the log file
