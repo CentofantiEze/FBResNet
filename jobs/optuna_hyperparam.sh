@@ -6,7 +6,7 @@ python ../scripts/FBRN_click.py \
     --test_opt False \
     --plot_opt False \
     --dataset_folder ../Datasets/ \
-    --output_folder C:/Users/ezece/OneDrive/Documents/Inria-OPIS/repos/FBResNet/test_dir/ \
+    --output_folder /workspace/repos/FBResNet/test_dir/ \
     --a 1 \
     --p 1 \
     --n 2000 \
