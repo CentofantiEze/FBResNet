@@ -389,8 +389,8 @@ class FBRestNet(nn.Module):
                 # Compute the loss
                 loss               = torch.sum(self.loss_fn(x_pred,x_true), dim=(1,2))
                 norm               = torch.sum(x_true**2, dim=(1,2))
-                loss_norm          = torch.mean(torch.div(loss,norm))
-                loss_train[epoch]  += torch.Tensor.item(loss_norm.detach())*x_true.shape[0]
+                loss_norm          = torch.sum(torch.div(loss,norm))
+                loss_train[epoch]  += torch.Tensor.item(loss_norm.detach())
                 # loss               = self.loss_fn(x_pred,x_true)
                 # norm               = torch.norm(x_true.detach(), dim=(2))
                 # loss_train[epoch] += torch.Tensor.item(loss/norm)
@@ -430,8 +430,8 @@ class FBRestNet(nn.Module):
                         loss               = torch.sum(self.loss_fn(x_pred,x_true), dim=(1,2))
                         norm               = torch.sum(x_true.detach()**2, dim=(1,2))
                         loss_in            = torch.sum(self.loss_fn(x_init,x_true), dim=(1,2))
-                        loss_val[epoch//self.freq_val] += torch.mean(torch.div(loss,norm)) * loss.shape[0]
-                        loss_init[epoch//self.freq_val] += torch.mean(torch.div(loss_in,norm)) * loss_in.shape[0]
+                        loss_val[epoch//self.freq_val] += torch.sum(torch.div(loss,norm))
+                        loss_init[epoch//self.freq_val] += torch.sum(torch.div(loss_in,norm))
                         # norm    = torch.norm(x_true.detach())
                         # loss    = self.loss_fn(x_pred, x_true)
                         # loss_in = self.loss_fn(x_init, x_true)
