@@ -1,5 +1,6 @@
 import FBRN
 from train_utils import train_eval_plot
+from optuna_FBRN import optimize_hyperparams
 import click
 
 @click.command()
@@ -185,6 +186,13 @@ import click
     type=bool,
     help='Save the models optimisation history.'
 )
+# Optuna option
+@click.option(
+    '--optuna',
+    default=False,
+    type=bool,
+    help='Runing optuna framework for hyperparameter tuning.'
+)
 
 
 
@@ -195,8 +203,10 @@ def main(**args):
     # check if dataset size is Ok (<600)
     # check physics values
     # other..
-
-    train_eval_plot(**args)
+    if args['optuna']:
+        optimize_hyperparams(**args)
+    else:
+        train_eval_plot(**args)
 
 if __name__ == "__main__":
     main()
