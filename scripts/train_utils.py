@@ -206,6 +206,7 @@ def train_eval_plot(**args):
     # Evaluate the results
     if args['test_opt']:
         print('Evaluate the model...')
+        model.to('cpu')
         loss, signals = model.test(val_set)
 
     # Generate the plots
