@@ -222,10 +222,10 @@ class FBRestNet(nn.Module):
                     yp[yp<0]      = 0
                     yp            = yp/np.amax(yp)
                     # filtering high frequencies
-                    fmax          = 4*m//5
-                    filtre        = Physics(nx,fmax)
-                    yp            = filtre.BasisChange(yp)
-                    x_true        = filtre.BasisChangeInv(yp)
+                    #fmax          = 4*m//5
+                    #filtre        = Physics(nx,fmax)
+                    yp            = self.physics.BasisChange(yp)
+                    x_true        = self.physics.BasisChangeInv(yp)
                     x_true[x_true<0] = 0
                     if self.constr == 'cube':
                         x_true += 0.01
