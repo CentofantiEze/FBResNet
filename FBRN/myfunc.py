@@ -20,6 +20,7 @@ import torch
 import numpy as np
 from torch.autograd import Variable
 import matplotlib.pyplot as plt
+from scipy.special import gamma as gamma_func
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~`
 
 #
@@ -31,14 +32,17 @@ class Physics:
     Alert : nx must be >> than m.
     Attributes
     ----------
-        nx         (int): size of initial signal 
-        m          (int): size of eigenvectors span
-        a          (int): oder of ill-posedness 
-        p          (int): order of a priori smoothness
-        eigm  (np.array): transformation between signal and eigenvectors basis
-        Top   (np.array): Abel operator from the finite element basis to the cos basis
+        nx          (int): size of initial signal 
+        m           (int): size of eigenvectors span
+        a           (int): oder of ill-posedness 
+        p           (int): order of a priori smoothness
+        eigm   (np.array): transformation between signal and eigenvectors basis
+        Top    (np.array): Abel operator from the finite element basis to the cos basis
+        Ta     (np.array): T operator in the finite element basis (discretized integral)
+        Tadj   (np.array): Adjoint of the T operator in the finite element basis.
+        IP_mat (np.array): Matrix for the inner product discretization.
     """
-    def __init__(self,nx=2000,m=50,a=1,p=1):
+    def __init__(self,nx=2000,m=50,a=1,p=1,discrete_op=True):
         """
         Alert : nx must be >> than m.
         """
@@ -47,22 +51,64 @@ class Physics:
         self.m    = m
         self.a    = a
         self.p    = p
+        # discrete inner product matrix
+        kernel = 2*np.ones(self.nx)
+        kernel[0] = 1
+        self.IP_mat=np.diag(kernel)
         # Eigenvalues
         self.eigm = (np.linspace(0,m-1,m)+1/2)*np.pi
         # Basis transformation
         base       = np.zeros((self.m,self.nx))        
-        h          = 1/(self.nx-1)
+        h          = 1/(self.nx)
         eig_m      = self.eigm.reshape(-1,1)
         # Fix the base definition
         #v1         = ((2*np.linspace(0,self.nx-1,self.nx)+1)*h/2).reshape(1,-1)
-        v1         = ((2*np.linspace(0,self.nx-1,self.nx)+1)/(2*self.nx)).reshape(1,-1)
-        #v2         = (np.ones(self.nx)/2*h).reshape(1,-1)
+        #v1         = ((2*np.linspace(0,self.nx-1,self.nx)+1)/(2*self.nx)).reshape(1,-1)
+        # Define basis such that f(1)=0 and f'(0)=0
+        v1         = ((2*np.linspace(0,self.nx-1,self.nx))/(2*self.nx)).reshape(1,-1)
         v2         = (np.ones(self.nx)/(2*self.nx)).reshape(1,-1)
         #base       = 2*np.sqrt(2)/eig_m*np.cos(v1*eig_m)*np.sin(v2*eig_m)
         # This definition differs from the paper definition
         base       = 2*np.sqrt(2)/(eig_m)*np.cos(v1*eig_m)*np.sin(v2*eig_m)
-        self.basis = base
-        # # Operator T
+        # Normalize the basis
+        self.basis = self.normalize_base(base)
+        # Discret T operator
+        self.discrete_op = discrete_op
+        # T operator as defined in the paper
+        g = gamma_func(self.a)
+
+        # T and T adjoint operators in the finite elements basis
+        Ta = np.zeros((self.nx,self.nx))
+        for i in range(self.nx):
+            for j in range(self.nx):
+                if j<i:
+                    Ta[i,j]=h**self.a/(2*g*self.a) * ((i-j+1)**self.a-(i-j-1)**self.a)
+                if j==0 and i!=0:
+                    Ta[i,j]=h**self.a/(2*g*self.a) * ((i)**self.a - (i-1)**self.a)
+                if j==i and i!=0:
+                    Ta[i,j]=h**self.a/(2*g*self.a)
+                if i==j and i==0:
+                    Ta[i,j]=0
+                if j>i:
+                    Ta[i,j]=0
+        self.Ta = Ta
+
+        Tadj = np.zeros((self.nx,self.nx))
+        for i in range(self.nx):
+            for j in range(self.nx):
+                if j>i and j!=(self.nx-1):
+                    Tadj[i,j]=h**(self.a)/(2*g*(self.a)) * ((j-i+1)**(self.a)-(j-i-1)**(self.a))
+                if j==(self.nx-1) and i!=j:
+                    Tadj[i,j]=h**(self.a)/(2*g*(self.a)) * (2* (j-i+1)**(self.a) - (j-i)**(self.a) - (j-i-1)**(self.a))
+                if j==i and i!=(self.nx-1):
+                    Tadj[i,j]=h**(self.a)/(2*g*(self.a))
+                if i==j and i==(self.nx-1):
+                    Tadj[i,j]=h**(self.a)/(g*(self.a))
+                if j<i:
+                    Tadj[i,j]=0
+        self.Tadj = Tadj
+
+        # # Operator T in eigen basis
         # step 0 : Abel operator integral
         # the image of the cos(t) basis is projected in a sin(t) basis
         Tdiag      = np.diag(1/self.eigm**self.a)
@@ -72,7 +118,18 @@ class Physics:
         base_sin   = 2*np.sqrt(2)/eig_m*np.sin(v1*eig_m)*np.sin(v2*eig_m)
         # step 2 : Combinaison of Top and base change
         self.Top = np.matmul(base_sin.T,Tdiag)
-        
+
+    def inner_prod(self,f1,f2):
+        return f1.T.dot(self.IP_mat).dot(f2)/(2*self.nx)
+
+    def normalize_base(self, base):
+        for i, f in enumerate(base):
+            base[i] = f/np.sqrt(self.inner_prod(f,f))
+        return base
+
+    def project(self, x):
+        return (self.basis).dot(self.IP_mat).dot(np.squeeze(x))/(2*self.nx)
+
     def BasisChange(self,x):
         """
         Change basis from signal to eigenvectors span.
@@ -83,8 +140,9 @@ class Physics:
         -------
             (np.array): of size n*c*m
         """
-        return np.matmul(x,(self.basis).T)
-    
+        #return np.matmul(x,(self.basis).T)
+        return self.project(x)
+
     def BasisChangeInv(self,x):
         """
         Change basis from eigenvectors span to signal.
@@ -95,7 +153,7 @@ class Physics:
         -------
             (np.array): of size nxcxnx
         """
-        return np.matmul(x,self.basis*self.nx)
+        return np.matmul(x,self.basis)
     
     def Operators(self):
        """
@@ -114,7 +172,7 @@ class Physics:
        Dop      = np.diag(self.eigm**(self.p))
        # matrix P of basis change from cos -> elt
        eltTocos = self.basis
-       cosToelt = self.basis.T*self.nx
+       cosToelt = self.basis.T#*self.nx
        # Convert to o Tensor
        tDD      = Dop*Dop
        tTT      = Top*Top
@@ -132,6 +190,8 @@ class Physics:
         -------
             (np.array): of size n*c*nx
         """
+        if self.discrete_op:
+            return np.matmul(x, self.Ta.T)
         # Change to eig basis
         xeig = self.BasisChange(x)
         # Operator T : Abel operator integral
@@ -148,6 +208,8 @@ class Physics:
         -------
             (np.array): of size n*c*m
         """
+        if self.discrete_op:
+            return self.BasisChange(np.matmul(y, self.Tadj.T))
         # T*= tT
         # < en , T^* phi_m > = < T en , phi_m > 
         return np.matmul(y,self.Top)
