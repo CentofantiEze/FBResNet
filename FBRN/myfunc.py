@@ -171,8 +171,8 @@ class Physics:
        # D  = 2*np.diag(np.ones(nx)) - np.diag(np.ones(nx-1),-1) - np.diag(np.ones(nx-1),1)# matrice de dérivation
        Dop      = np.diag(self.eigm**(self.p))
        # matrix P of basis change from cos -> elt
-       eltTocos = self.basis
-       cosToelt = self.basis.T#*self.nx
+       eltTocos = (self.basis).dot(self.IP_mat)/(2*self.nx)
+       cosToelt = self.basis.T
        # Convert to o Tensor
        tDD      = Dop*Dop
        tTT      = Top*Top
