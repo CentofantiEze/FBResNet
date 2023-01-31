@@ -483,7 +483,7 @@ class FBRestNet(nn.Module):
             torch.save(self.model.state_dict(), self.model_folder+self.model_id+'weights.pt')
 #========================================================================================================
 #========================================================================================================    
-    def test(self,data_set,plot_opt=False):    
+    def test(self,data_set,plot_opt=False, idx=0):    
         """
         Computes the averaged error of the output on a dataset.
         Parameters
@@ -552,9 +552,9 @@ class FBRestNet(nn.Module):
             np.save(self.results_folder+self.model_id+'ground_true.npy', x_true_list)
 
         # Plots
-        xt = x_true.numpy()[0,0]
-        xp = x_pred.numpy()[0,0]
-        xi = x_init.numpy()[0,0]
+        xt = x_true.numpy()[idx,0]
+        xp = x_pred.numpy()[idx,0]
+        xi = x_init.numpy()[idx,0]
         xtc  = self.physics.BasisChange(xt)
         xpc  = self.physics.BasisChange(xp)
         xic  = self.physics.BasisChange(xi)
