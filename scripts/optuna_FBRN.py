@@ -87,10 +87,24 @@ def define_model(hyperparams, **args):
 
 def objective(trial, **args):
     
+    # Define default hyperparameter bounds
+    if 'lr_min' not in args:
+        args['lr_min'] = 1e-3
+    if 'lr_max' not in args:
+        args['lr_max'] = 1e1
+    if 'block_min' not in args:
+        args['block_min'] = 15
+    if 'block_max' not in args:
+        args['block_max'] = 50
+    if 'epoch_min' not in args:
+        args['epoch_min'] = 20
+    if 'epoch_max' not in args:
+        args['epoch_max'] = 250
+
     hyperparams = {
-        'lr' : trial.suggest_float('learning_rate', 1e-3, 1e1,log=True),
-        'nb_blocks' : trial.suggest_int('nb_blocks', 15, 35),
-        'nb_epochs' : trial.suggest_int('nb_epochs', 15,100)
+        'lr' : trial.suggest_float('learning_rate', args['lr_min'], args['lr_max'], log=True),
+        'nb_blocks' : trial.suggest_int('nb_blocks', args['block_min'], args['block_max']),
+        'nb_epochs' : trial.suggest_int('nb_epochs', args['epoch_min'], args['epoch_max'])
     }
 
     model, log_file, old_stdout = define_model(hyperparams, **args)
