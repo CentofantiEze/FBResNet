@@ -193,6 +193,43 @@ import click
     type=bool,
     help='Runing optuna framework for hyperparameter tuning.'
 )
+# Optuna parameter range
+@click.option(
+    '--lr_min',
+    default=1e-4,
+    type=float,
+    help='Optuna minimum learning rate.'
+)
+@click.option(
+    '--lr_max',
+    default=False,
+    type=float,
+    help='Optuna maximum learning rate.'
+)
+@click.option(
+    '--block_min',
+    default=20,
+    type=int,
+    help='Optuna minimum number of blocks.'
+)
+@click.option(
+    '--block_max',
+    default=20,
+    type=int,
+    help='Optuna maximum number of blocks.'
+)
+@click.option(
+    '--epoch_min',
+    default=20,
+    type=int,
+    help='Optuna minimum number of epochs.'
+)
+@click.option(
+    '--epoch_max',
+    default=150,
+    type=int,
+    help='Optuna maximum number of epochs.'
+)
 
 
 
