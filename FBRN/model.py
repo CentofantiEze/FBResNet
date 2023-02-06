@@ -283,7 +283,8 @@ class Cnn_reg(nn.Module):
         self.d    = nn.Parameter(torch.FloatTensor([init]))
         #
         self.soft = nn.Softplus()
-        self.inv  = MyMatmul(self.eig**self.a)
+        #self.inv  = MyMatmul(self.eig**self.a)
+        self.inv  = MyMatmul(self.eig**(2*self.a))
         # numpy
         self.m    = exp.m
          
@@ -301,10 +302,12 @@ class Cnn_reg(nn.Module):
         x_out            = x_in.clone().detach() 
         x_out            = self.inv(x_out)
         x_fil            = x_out.clone().detach()
+        #x_fil            = x_in.clone().detach()
         nflt             = 4*self.m//5
         x_fil[:,:,nflt:] = torch.zeros((1,1,self.m-nflt))
         #
         delta            = torch.sqrt(torch.sum((x_out-x_fil)**2,2))# estimation de l' erreur
+        #delta            = torch.sqrt(torch.sum((x_in-x_fil)**2,2))# estimation de l' erreur
         delta            = delta.view(delta.size(0), -1)
         rho              = torch.sqrt(torch.sum((x_fil)**2,2))# estimation de la norme
         rho              = rho.view(rho.size(0), -1)
