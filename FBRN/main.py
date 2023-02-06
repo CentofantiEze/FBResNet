@@ -558,6 +558,8 @@ class FBRestNet(nn.Module):
         xtc  = self.physics.BasisChange(xt)
         xpc  = self.physics.BasisChange(xp)
         xic  = self.physics.BasisChange(xi)
+        err_pred_idx = np.sum((xt-xp)**2)/np.sum(xt**2)
+        err_init_idx = np.sum((xt-xi)**2)/np.sum(xt**2)
         if plot_opt:
             fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12,8))
             fig.suptitle("Prediction results")
@@ -575,6 +577,8 @@ class FBRestNet(nn.Module):
             ax2.set_xlabel('t')
             ax2.legend()
             plt.show()
+            print('Example {} relative error: {}'.format(idx, err_pred_idx))
+            print('Example {} initial error: {}'.format(idx, err_init_idx))
             #
         print("Erreur de sortie : ",torch.Tensor.item(avrg))
         print("Erreur initiale : ",torch.Tensor.item(avrg_in))
