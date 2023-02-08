@@ -194,7 +194,7 @@ def train_eval_plot(**args):
     # Random generator seed
     if 'rand_seed' in args and args['rand_seed'] is not None:
         generator=torch.Generator()
-        generator.manual_seed(args['--rand_seed'])
+        generator.manual_seed(args['rand_seed'])
     else:
         generator = None
 
