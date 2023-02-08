@@ -225,7 +225,7 @@ class cardan_slab(torch.autograd.Function):
         #                         + torch.multiply(coeff.view(n,1,1,1),torch.outer(u,u))/norm_u
         # grad_input_u         = torch.eye(nx) \
         #                         + torch.kron(coeff.view(n,1,1,1),torch.outer(u,u))/norm_u
-        grad_input_u         = torch.eye(nx) \
+        grad_input_u         = torch.eye(nx).to(x.device) \
                                 + torch.einsum("ij,kl->iljk ",torch.outer(coeff.view(-1),u),u.view(-1,1))/norm_u
         # if denom is very small, it means that gamma_mu is very small and u is very close to one of the bounds,
         # there is a discontinuity when gamma_mu tends to zero, if 0<u<1 the derivative wrt x is approximately equal to 
