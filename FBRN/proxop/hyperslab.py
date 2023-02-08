@@ -15,6 +15,10 @@ import numpy as np
 import torch
 import sys
 
+# Profiling
+import cProfile
+import pstats
+
 class cardan_slab(torch.autograd.Function):  
 
     @staticmethod
@@ -49,7 +53,7 @@ class cardan_slab(torch.autograd.Function):
         sol, kappa        = sol.to(xtilde.device), kappa.to(xtilde.device)
         xmin              = 0
         xmax              = 1
-        u                 = 1/nx**2*torch.linspace(1,nx,nx)
+        u                 = torch.FloatTensor( 1/nx**2*torch.linspace(1,nx,nx) )
         u                 = u.to(xtilde.device)
         norm_u            = torch.norm(u)**2
         uTx               = torch.matmul(xtilde,u).view(n,1,1)
@@ -150,7 +154,7 @@ class cardan_slab(torch.autograd.Function):
         ind                      = (crit_compare<=crit)+ torch.zeros(n,1,nx).to(xtilde.device)#broadcasting  
         ind                      = ind>0  
         sol[ind]                 = 0*sol[ind]+(xmin+1e-10)
-        kappa[crit_compare<=crit]= uTx
+        kappa[crit_compare<=crit]= uTx[crit_compare<=crit]
         crit[crit_compare<=crit] = crit_compare[crit_compare<=crit]
         #########################################################################
         #test xmax-1e-10
@@ -213,8 +217,16 @@ class cardan_slab(torch.autograd.Function):
         denom[~idx]          = denom[~idx]+1
         grad_input_gamma_mu  = (2*kappa-(xmin+xmax))/denom*torch_u
         coeff                = (xmax-kappa)*(xmin-kappa)/denom - 1
+        # grad_input_u         = torch.eye(nx) \
+        #                        +coeff*torch.matmul(torch_u.view(1,1,-1,1),u.view(1,-1))/norm_u
+        # grad_input_u         = torch.eye(nx) \
+        #                        + torch.multiply(coeff.view(n,1,1,1),torch.matmul(torch_u.view(n,1,-1,1),u.view(1,-1)))/norm_u
+        # grad_input_u         = torch.eye(nx) \
+        #                         + torch.multiply(coeff.view(n,1,1,1),torch.outer(u,u))/norm_u
+        # grad_input_u         = torch.eye(nx) \
+        #                         + torch.kron(coeff.view(n,1,1,1),torch.outer(u,u))/norm_u
         grad_input_u         = torch.eye(nx) \
-                               +coeff*torch.matmul(torch_u.view(1,1,-1,1),u.view(1,-1))/norm_u
+                                + torch.einsum("ij,kl->iljk ",torch.outer(coeff.view(-1),u),u.view(-1,1))/norm_u
         # if denom is very small, it means that gamma_mu is very small and u is very close to one of the bounds,
         # there is a discontinuity when gamma_mu tends to zero, if 0<u<1 the derivative wrt x is approximately equal to 
         # 1 and the derivative wrt gamma_mu is approximated by 10^3 times the error 2kappa-xmin-xmax
@@ -222,8 +234,8 @@ class cardan_slab(torch.autograd.Function):
         grad_input_u[~ind]        = 0*grad_input_u[~ind]+1
         
         grad_input_gamma_mu = grad_input_gamma_mu*grad_output#.sum(1).sum(1).unsqueeze(1).unsqueeze(2)
-        grad_input_u        = grad_input_u*grad_output
-        
+        #grad_input_u        = torch.matmul(grad_input_u,grad_output.view(n,1,-1,1)).view(n,1,-1)
+        grad_input_u        = torch.einsum("ijkl,ijl->ijk",grad_input_u,grad_output)
         # safety check for numerical instabilities
         if (grad_input_gamma_mu!=grad_input_gamma_mu).any():
             print('there is a nan in grad_input_gamma_mu')
