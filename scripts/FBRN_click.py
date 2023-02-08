@@ -230,6 +230,12 @@ import click
     type=int,
     help='Optuna maximum number of epochs.'
 )
+@click.option(
+    '--rand_seed',
+    default = None,
+    type = int,
+    help='Seed for reproducing random dataset split.'
+)
 
 
 

@@ -191,9 +191,16 @@ def train_eval_plot(**args):
     model.to(device)
     model.model.to(device)
 
+    # Random generator seed
+    if 'rand_seed' in args and args['rand_seed'] is not None:
+        generator=torch.Generator()
+        generator.manual_seed(args['--rand_seed'])
+    else:
+        generator = None
+
     # Create datasets
     print('Generating datsets...')
-    train_set, val_set = model.CreateDataSet()
+    train_set, val_set = model.CreateDataSet(generator=generator)
 
     # Train the model
     if args['train_opt']:
