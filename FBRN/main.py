@@ -163,7 +163,7 @@ class FBRestNet(nn.Module):
         self.model.eval() # be sure to run this step!
 #========================================================================================================
 #========================================================================================================    
-    def CreateDataSet(self):
+    def CreateDataSet(self, generator=None):
         """
         Creates the dataset from an image basis, rescale, compute transformation and noise.
         Construct the appropriate loader for the training and validation sets.
@@ -287,7 +287,7 @@ class FBRestNet(nn.Module):
         #
         dataset = TensorDataset(y_tensor[:nsample], x_tensor[:nsample])
         # Split dataset
-        train_dataset, val_dataset = random_split(dataset, [self.train_size, self.val_size])
+        train_dataset, val_dataset = random_split(dataset, [self.train_size, self.val_size], generator=generator)
         #
         train_loader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True)
         val_loader   = DataLoader(val_dataset, batch_size=len(val_dataset), shuffle=False)
@@ -547,7 +547,8 @@ class FBRestNet(nn.Module):
             avrg_in = avrg_in/ len(data_set.dataset)
         # Save the predictions
         if self.save_outputs:
-            print('Saving predictions...')
+            if plot_opt:
+                print('Saving predictions...')
             np.save(self.results_folder+self.model_id+'predictions.npy', x_pred_list)
             np.save(self.results_folder+self.model_id+'ground_true.npy', x_true_list)
 
@@ -580,8 +581,8 @@ class FBRestNet(nn.Module):
             print('Example {} relative error: {}'.format(idx, err_pred_idx))
             print('Example {} initial error: {}'.format(idx, err_init_idx))
             #
-        print("Erreur de sortie : ",torch.Tensor.item(avrg))
-        print("Erreur initiale : ",torch.Tensor.item(avrg_in))
+            print("Erreur de sortie : ",torch.Tensor.item(avrg))
+            print("Erreur initiale : ",torch.Tensor.item(avrg_in))
         signals = {
             "x_elt_true" : xt,
             "x_elt_init" : xi,
@@ -593,7 +594,7 @@ class FBRestNet(nn.Module):
         return avrg/len(data_set), signals
 #========================================================================================================
 #======================================================================================================== 
-    def test_gauss(self, noise = 0.05):
+    def test_gauss(self, noise = 0.05, plot_opt=True):
         """
         Apply and test the inversion method on a gaussian function.
         Parameters
@@ -661,16 +662,16 @@ class FBRestNet(nn.Module):
             xp       = self.physics.BasisChangeInv(xpc)
             #xp[xp<0] = 0
         # export
-        print(type(self.constr))
         if self.save_signals:
             Export_Data(t,xp,self.dataset_folder+'data','gauss_pred_a{}'.format(self.physics.a)+self.constr)
         # plot
-        plt.plot(t,gauss,linewidth=3,label='Gaussian')
-        plt.plot(t,self.physics.BasisChangeInv(x_init.numpy()[0,0]), label='Init')
-        plt.plot(t,xp, label='Pred')
-        plt.xlabel('t')
-        plt.legend()
-        plt.show()
+        if plot_opt:
+            plt.plot(t,gauss,linewidth=3,label='Gaussian')
+            plt.plot(t,self.physics.BasisChangeInv(x_init.numpy()[0,0]), label='Init')
+            plt.plot(t,xp, label='Pred')
+            plt.xlabel('t')
+            plt.legend()
+            plt.show()
 
-        print("|x-xp|/|x| = ",(np.linalg.norm(xp-gauss)/np.linalg.norm(gauss))**2)
-
+            print("|x-xp|/|x| = ",(np.linalg.norm(xp-gauss)/np.linalg.norm(gauss))**2)
+        return t, gauss, xp
