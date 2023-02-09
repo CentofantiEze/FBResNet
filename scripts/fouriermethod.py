@@ -1,23 +1,17 @@
 """
-SolverCheybyshev classe.
+Fourier filter class.
 
-@author: Cecile Della Valle
-@date: 03/01/2021
+@author: Ezequiel Centofanti
+@date: 09/02/2023
 """
 
 # general
 import numpy as np
-import math
 import matplotlib.pyplot as plt
-from scipy.linalg import inv,pinvh,eig,eigh
-from scipy.special import gamma
-import pandas as pd
-from scipy.interpolate import interp1d
 # local
 from FBRN.myfunc import Physics
-from torch.autograd import Variable
 
-class SolverChebyshev():
+class Fourier_solver():
     def __init__(self,nx=2000, m=50, a=1, p=1):
         self.nx  = nx
         self.m   = m
