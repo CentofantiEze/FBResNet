@@ -58,7 +58,6 @@ class Block(torch.nn.Module):
         """
         super(Block, self).__init__()
         #
-        #self.eigv     = torch.FloatTensor(exp.eigm)
         self.register_buffer('eigv', torch.FloatTensor(exp.eigm))
         self.nx       = exp.nx
         self.m        = exp.m
@@ -154,6 +153,15 @@ class MyModel(torch.nn.Module):
         constr                        (str): constraint, 'cube' or 'slab'
     """
     def __init__(self,exp,noisy=True,nL=20,constr='cube'):
+        """
+        Parameters
+        ----------
+      	    exp         (Physic object): contains the experimental parameters.
+            noisy                (bool): True if regularization parameter is learned.
+            nL                            (int): number of layers.
+            constr                (str): constraint, 'cube' or 'slab'.
+        
+        """
         super(MyModel, self).__init__()
         self.Layers   = nn.ModuleList()
         self.nL       = nL
@@ -276,6 +284,12 @@ class Cnn_reg(nn.Module):
         
     """
     def __init__(self,exp,init=0.01):
+        """
+        Parameters
+        ----------
+            exp         (Physic object): contains the experimental parameters.
+            init                (float): initial value of the d parameter (default=0.01).
+        """
         super(Cnn_reg, self).__init__()
         self.a    = nn.Parameter(torch.FloatTensor([exp.a]),requires_grad=False)
         self.p    = nn.Parameter(torch.FloatTensor([exp.p]),requires_grad=False)
@@ -329,6 +343,11 @@ class Cnn_bar(nn.Module):
         soft        (torch.nn.Softplus): Softplus activation function
     """
     def __init__(self,nx):
+        """
+        Parameters
+        ----------
+            nx          (int): size of initial signal.
+        """
         super(Cnn_bar, self).__init__()
         self.lin2   = nn.Linear(nx, 256)
         self.conv2  = nn.Conv1d(1, 1, 5,padding=2)

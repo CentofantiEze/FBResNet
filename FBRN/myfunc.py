@@ -46,23 +46,26 @@ class Physics:
     def __init__(self,nx=2000,m=50,a=1,p=1,discrete_op=True):
         """
         Alert : nx must be >> than m.
+
+        Parameters
+        ----------
+            nx           (int): size of initial signal 
+            m            (int): size of eigenvectors span
+            a            (int): oder of ill-posedness 
+            p            (int): order of a priori smoothness
         """
         # Physical parameters
         self.nx   = nx
         self.m    = m
         self.a    = a
         self.p    = p
-        # discrete inner product matrix
+        # Discrete inner product matrix
         kernel = 2*np.ones(self.nx)
         kernel[0] = 1
         self.IP_mat=np.diag(kernel)
-        # Eigenvalues
-        #self.eigm = (np.linspace(0,m-1,m)+1/2)*np.pi
-        # Basis transformation
-        #base       = np.zeros((self.m,self.nx))        
+        # Discretization stepsize     
         h          = 1/(self.nx)
-        #eig_m      = self.eigm.reshape(-1,1)
-        # T operator as defined in the paper
+        # Gamma(a)
         g = gamma_func(self.a)
 
         # T and T adjoint operators in the finite elements basis
@@ -96,44 +99,24 @@ class Physics:
                     Tadj[i,j]=0
         self.Tadj = Tadj
 
-        # # Fix the base definition
-        # #v1         = ((2*np.linspace(0,self.nx-1,self.nx)+1)*h/2).reshape(1,-1)
-        # #v1         = ((2*np.linspace(0,self.nx-1,self.nx)+1)/(2*self.nx)).reshape(1,-1)
-        # # Define basis such that f(1)=0 and f'(0)=0
-        # v1         = ((2*np.linspace(0,self.nx-1,self.nx))/(2*self.nx)).reshape(1,-1)
-        # v2         = (np.ones(self.nx)/(2*self.nx)).reshape(1,-1)
-        # #base       = 2*np.sqrt(2)/eig_m*np.cos(v1*eig_m)*np.sin(v2*eig_m)
-        # # This definition differs from the paper definition
-        # base       = 2*np.sqrt(2)/(eig_m)*np.cos(v1*eig_m)*np.sin(v2*eig_m)
         
-        # Normalize the basis
-        #self.basis = self.normalize_base(base)
+        
+        # Get eigenvectors and eigenvalues of T*T
         eigw_full, base_full = la.eig(self.Tadj.dot(self.Ta))
         # Keep the first 'm' eigenvectors
         base_m = base_full[:,:self.m].T
         # Set sign of eigv, s.t. v[0]>0
         base = np.diag(np.sign(base_m[:,0])).dot(base_m)
         base[:,0] = base[0,0]
+        # Normalize the base
         base_norm = self.normalize_base(base)
         self.basis = base_norm
-        # Discret T operator
-        self.discrete_op = discrete_op
         # Eigenvalues
         self.eigw = eigw_full[:self.m]
-
         # Inverse operator of T*T in the eigenbasis
         self.inv      = np.diag(self.eigw**(-1))
         self.eigm     = self.eigw**(-1/(2*self.a))
-        # # Operator T in eigen basis
-        # step 0 : Abel operator integral
-        # the image of the cos(t) basis is projected in a sin(t) basis
-        # Tdiag      = np.diag(1/self.eigm**self.a)
-        # # step 1 : From sin(t) basis to cos(t) basis
-        # eig_m      = self.eigm.reshape(-1,1)
-        # base_sin   = np.zeros((self.m,self.nx))
-        # base_sin   = 2*np.sqrt(2)/eig_m*np.sin(v1*eig_m)*np.sin(v2*eig_m)
-        # # step 2 : Combinaison of Top and base change
-        # self.Top = np.matmul(base_sin.T,Tdiag)
+        
 
     def inner_prod(self,f1,f2):
         return f1.T.dot(self.IP_mat).dot(f2)/(2*self.nx)
@@ -156,7 +139,6 @@ class Physics:
         -------
             (np.array): of size n*c*m
         """
-        #return np.matmul(x,(self.basis).T)
         return self.project(x)
 
     def BasisChangeInv(self,x):
@@ -182,14 +164,12 @@ class Physics:
            (list): four numpy array, the regularisation a priori, the Abel operator,
                    the ortogonal matrix from element to eigenvector basis
        """
-       # T  = 1/nx*np.tri(nx, nx, 0, dtype=int).T # matrice de convolution
        Top      = np.diag(1/self.eigm**(self.a))
-       # D  = 2*np.diag(np.ones(nx)) - np.diag(np.ones(nx-1),-1) - np.diag(np.ones(nx-1),1)# matrice de dérivation
        Dop      = np.diag(self.eigm**(self.p))
-       # matrix P of basis change from cos -> elt
+       # matrix P: basis change from cos <-> elt
        eltTocos = (self.basis).dot(self.IP_mat)/(2*self.nx)
        cosToelt = self.basis.T
-       # Convert to o Tensor
+       # TT and DD operators in eig space
        tDD      = Dop*Dop
        tTT      = Top*Top
        #
@@ -206,12 +186,8 @@ class Physics:
         -------
             (np.array): of size n*c*nx
         """
-        # if self.discrete_op:
         return np.matmul(x, self.Ta.T)
-        # # Change to eig basis
-        # xeig = self.BasisChange(x)
-        # # Operator T : Abel operator integral
-        # return np.matmul(xeig,self.nx*self.Top.T)
+
     
     def ComputeAdjoint(self,y):
         """
@@ -224,11 +200,7 @@ class Physics:
         -------
             (np.array): of size n*c*m
         """
-        # if self.discrete_op:
         return self.BasisChange(np.matmul(y, self.Tadj.T))
-        # T*= tT
-        # < en , T^* phi_m > = < T en , phi_m > 
-        # return np.matmul(y,self.Top)
 
 #
 class MyMatmul(nn.Module):
