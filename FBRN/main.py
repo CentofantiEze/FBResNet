@@ -107,13 +107,13 @@ class FBRestNet(nn.Module):
             batch_size                 (int): training batch size.
             train_size                 (int): size of the training dataset.
             val_size                   (int): size of the validation dataset.
-            lr_i                     (float): learning rate
+            lr                       (float): learning rate
             nb_epochs                  (int): number of epochs for training.
             freq_val                   (int): model validation rate.
             dataset_folder             (str): path to the Dataset folder.
             model_folder               (str): path to the pretrained model weigths.
             opt_hist_folder            (str): optimisation history saving folder.
-            results_folder       (str): test predictions saving folder.
+            results_folder             (str): test predictions saving folder.
             loss_elt                  (bool): compute the loss in the finite elements space.
             save_signals              (bool): save the 1D signals.
             save_outputs              (bool): save the forwar-backwards parameters.
@@ -152,15 +152,19 @@ class FBRestNet(nn.Module):
         self.model      = MyModel(self.physics,noisy=self.regul,nL=self.nb_blocks,constr=self.constr)
 #========================================================================================================
 #========================================================================================================
-    def LoadParam(self):
+    def LoadParam(self, path=None, device='cpu'):
         """
         Load the parameters of a trained model (in Trainings)
+        Parameters
+        ----------
+            path                (str): model weigths absolute path.
+            device     (troch.device): model device, either cpu or cuda.
         """
-        path_model = self.model_folder+'param_{}_{}_'.format(
-            self.physics.a,self.physics.p
-        )+self.constr+'.pt'
-        self.model.load_state_dict(torch.load(path_model))
-        self.model.eval() # be sure to run this step!
+        if path is None:
+            path = self.model_folder+self.model_id+'weights.pt'
+
+        self.model.load_state_dict(torch.load(path, map_location=torch.device(device)))
+
 #========================================================================================================
 #========================================================================================================    
     def CreateDataSet(self, generator=None):
@@ -169,16 +173,12 @@ class FBRestNet(nn.Module):
         Construct the appropriate loader for the training and validation sets.
         Parameters
         ----------
-            save       (str): 'yes' if the data are saved for reloading.
+            generator       (torch.generator): Torch generator for reproducing random split of dataset.
         Returns
         -------
             (DataLoder): training set
             (DataLoader): validation set
         """
-        #
-        # Test_cuda()
-        # self.device   =
-        # self.dtype    =
         # Recuperation des donnees
         nx             = self.physics.nx
         m              = self.physics.m
@@ -221,9 +221,7 @@ class FBRestNet(nn.Module):
                     yp[nx-ncrop:] = 0
                     yp[yp<0]      = 0
                     yp            = yp/np.amax(yp)
-                    # filtering high frequencies
-                    #fmax          = 4*m//5
-                    #filtre        = Physics(nx,fmax)
+                    # Projecto onto eigenfunction basis
                     yp            = self.physics.BasisChange(yp)
                     x_true        = self.physics.BasisChangeInv(yp)
                     x_true[x_true<0] = 0
@@ -243,29 +241,20 @@ class FBRestNet(nn.Module):
                     # save
                     liste_l_trsf.append(x_true_trsf)
                     save_l_trsf.append( x_true_trsf.squeeze())
-                    #  Etape 3 : obtenir les images bruitees par l' operateur d' ordre a
+                    # Etape 3 : obtenir les images bruitees par l' operateur d' ordre a
                     # transform
                     x_blurred  = self.physics.Compute(x_true).squeeze()
                     # save
                     save_blurred.append(x_blurred)
                     # Etape 4 : noise 
-                    #vn          = np.zeros(m)
-                    #vn_temp     = np.random.randn(m)*self.physics.eigm**(-2*a)
-                    #vn[fmax:]   = vn_temp[fmax:]
-                    #vn_elt      = self.physics.BasisChangeInv(vn)
-                    #vn_elt      = vn_elt#/np.linalg.norm(vn_elt)
-                    # White noise (as indicated in the paper)
                     noise = np.random.randn(nx)
                     x_blurred_n = x_blurred + self.noise*np.linalg.norm(x_blurred)/np.sqrt(nx)*noise#vn_elt
                     # save
                     save_blurred_n.append(x_blurred_n)
                     # Etape 5 : bias
-                    #x_b       = self.physics.ComputeAdjoint(x_blurred.reshape(1,-1))
-                    #x_b      += (Teig.dot(vn)).reshape(1,-1) # noise
-                    # Compute Bias as in the paper T*(y_noisy)
                     x_b = self.physics.ComputeAdjoint(x_blurred_n)
                     x_b       = x_b.reshape(1,-1)
-                    # and save
+                    # save
                     liste_tT_trsf.append(x_b)
                     save_tT_trsf.append(x_b.squeeze())
         # Export data in .csv
@@ -291,13 +280,6 @@ class FBRestNet(nn.Module):
         #
         train_loader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True)
         val_loader   = DataLoader(val_dataset, batch_size=len(val_dataset), shuffle=False)
-        
-        # # Plot the output with and without noise
-        # plt.plot(save_blurred_n[0],label='Noisy')
-        # plt.plot(save_blurred[0],label='Noiseless')
-        # plt.legend()
-        # plt.title('Output signal')
-        # plt.show()
         
         return train_loader, val_loader
 #========================================================================================================
@@ -340,6 +322,7 @@ class FBRestNet(nn.Module):
         -------
             train_loader (DataLoder): training set
             val_loader  (DataLoader): validation set
+            device    (torch.device): either cpu or cuda.
             test_lipschitz    (bool): True if the lipschitz constant is computed during training
         """      
         # to store results
@@ -351,24 +334,17 @@ class FBRestNet(nn.Module):
         lip_cste   = np.zeros(nb_val)
         hyper_params_list = []
         # defines the optimizer
-        #lr_i       = self.lr_i
         #optimizer  = torch.optim.Adam(filter(lambda p: p.requires_grad,self.model.parameters()),lr=self.lr_i)   
-        optimizer  = torch.optim.SGD(self.model.parameters(),lr=self.lr_i)   
-        # filtering parameter
-        fmax     = 4*self.physics.m//5
+        optimizer  = torch.optim.SGD(self.model.parameters(),lr=self.lr_i)
         # trains for several epochs
         for epoch in range(0,self.nb_epochs): 
             # sets training mode
             self.model.train()
-            # Do NOT restart the optimizer each epoch!!!!
-            # # modifies learning rate
-            # if epoch>0:
-            #     lr_i      = self.lr_i*0.98 
-            #     optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad,self.model.parameters()), lr=lr_i)
             # TRAINING
             # goes through all minibatches
             for i,minibatch in enumerate(train_set):
                 [y, x]    = minibatch    # get the minibatch
+                # load data on the device (GPU if available)
                 x_bias    = Variable(y.to(device),requires_grad=False)
                 x_true    = Variable(x.to(device),requires_grad=False) 
                 # definition of the initialisation tensor
@@ -377,8 +353,6 @@ class FBRestNet(nn.Module):
                 tTTinv   = MyMatmul(inv).to(device)
                 x_init   = tTTinv(x_bias) # no filtration of high frequences
                 x_init   = Variable(x_init.to(device),requires_grad=False)
-                # load data on the device (GPU if available)
-                #x_init, x_bias, x_true = x_init.to(device), x_bias.to(device), x_true.to(device)
                 # prediction
                 x_pred    = self.model(x_init,x_bias) 
                 # Computes and prints loss
@@ -391,9 +365,6 @@ class FBRestNet(nn.Module):
                 norm               = torch.sum(x_true**2, dim=(1,2))
                 loss_norm          = torch.sum(torch.div(loss,norm))
                 loss_train[epoch]  += torch.Tensor.item(loss_norm.detach())
-                # loss               = self.loss_fn(x_pred,x_true)
-                # norm               = torch.norm(x_true.detach(), dim=(2))
-                # loss_train[epoch] += torch.Tensor.item(loss/norm)
                 # sets the gradients to zero, performs a backward pass, and updates the weights. 
                 loss_norm.backward()
                 optimizer.step()
@@ -432,11 +403,6 @@ class FBRestNet(nn.Module):
                         loss_in            = torch.sum(self.loss_fn(x_init,x_true), dim=(1,2))
                         loss_val[epoch//self.freq_val] += torch.sum(torch.div(loss,norm))
                         loss_init[epoch//self.freq_val] += torch.sum(torch.div(loss_in,norm))
-                        # norm    = torch.norm(x_true.detach())
-                        # loss    = self.loss_fn(x_pred, x_true)
-                        # loss_in = self.loss_fn(x_init, x_true)
-                        # loss_val[epoch//self.freq_val] += torch.Tensor.item(loss/norm)
-                        # loss_init[epoch//self.freq_val]+= torch.Tensor.item(loss_in/norm)
                     # normalisation
                     loss_val[epoch//self.freq_val] = loss_val[epoch//self.freq_val]/self.val_size
                     loss_init[epoch//self.freq_val] = loss_init[epoch//self.freq_val]/self.val_size
@@ -458,15 +424,6 @@ class FBRestNet(nn.Module):
         print('Training is done.')
         print('--------------------------------------------')
         
-        # # Plots
-        # fig, (ax1, ax2) = plt.subplots(1, 2)
-        # ax1.plot(np.linspace(0,nb_epochs-1,nb_epochs),loss_train,label = 'train')
-        # ax1.plot(np.linspace(0,nb_epochs-1,nb_val),loss_val,label = 'val')
-        # ax1.legend()
-        # ax2.plot(np.linspace(0,nb_val-1,nb_val),lip_cste,'r-')
-        # ax2.set_title("Lipschitz constant")
-        # plt.show()
-        #
         print("Final Lipschitz constant = ",lip_cste[-1])
 
         if self.save_hist:
@@ -488,10 +445,13 @@ class FBRestNet(nn.Module):
         Computes the averaged error of the output on a dataset.
         Parameters
         ----------
-            dataset   (Dataloader): the test set
+            dataset   (Dataloader): the test set.
+            plot_opt        (bool): if true a prediction is plotted.
+            idx              (int): index of the plotted example.
         Returns
         ----------
-            (float): averaged error
+            loss           (float): averaged error
+            signals         (dict): dictionary containing the idx predicted and GT signals.
         """
         # initial
         if self.loss_elt:
@@ -502,9 +462,7 @@ class FBRestNet(nn.Module):
         avrg_in     = 0
         x_pred_list = np.array([]).reshape(0,1,self.physics.nx)
         x_true_list = np.array([]).reshape(0,1,self.physics.nx)
-        # filtering parameter
-        #fmax     = 4*self.physics.m//5
-        # gies through the minibatch
+        # Evaluate
         with torch.no_grad():
             self.model.eval()
             for i,minibatch in enumerate(data_set):
@@ -528,10 +486,6 @@ class FBRestNet(nn.Module):
                 loss    = torch.sum(self.loss_fn(x_pred,x_true), dim=(1,2))
                 norm    = torch.sum(x_true.detach()**2, dim=(1,2))
                 loss_in = torch.sum(self.loss_fn(x_init,x_true), dim=(1,2))
-                # loss   = torch.Tensor.item(self.loss_fn(x_pred, x_true))
-                # norm   = torch.Tensor.item(self.loss_fn(torch_zeros, x_true))
-                # loss_in= torch.Tensor.item(self.loss_fn(x_init, x_true))
-                # l_loss.append(loss/norm)
                 avrg    += torch.mean(torch.div(loss,norm))*x_true.shape[0]
                 avrg_in += torch.mean(torch.div(loss_in,norm))*x_true.shape[0]
                 # Save signals
@@ -564,14 +518,11 @@ class FBRestNet(nn.Module):
         if plot_opt:
             fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12,8))
             fig.suptitle("Prediction results")
-            #ax1.plot(xtc,'+',label = 'true')
-            #ax1.plot(xpc,'kx',label = 'pred')
             ax1.plot(xtc,label = 'true', linewidth=3)
             ax1.plot(xic,label = 'init')
             ax1.plot(xpc,label = 'pred')
             ax1.set_xlabel('k')
             ax1.legend()
-            #ax2.plot(np.linspace(0,1,self.physics.nx),xt,'+',label = 'true')
             ax2.plot(np.linspace(0,1,self.physics.nx),xt,label = 'true', linewidth=3)
             ax2.plot(np.linspace(0,1,self.physics.nx),xi,label = 'init')        
             ax2.plot(np.linspace(0,1,self.physics.nx),xp,label = 'pred')
@@ -599,7 +550,13 @@ class FBRestNet(nn.Module):
         Apply and test the inversion method on a gaussian function.
         Parameters
         ----------
-            noise   (float): standard deviation of Gaussian white noise
+            noise   (float): standard deviation of Gaussian white noise.
+            plot_opt (bool): if true the prediction is plotted.
+        Returns
+        ----------
+            t       (array): time array.
+            gauss   (array): gaussian signal.
+            xp      (array): prediction.
         
         """
         # Gaussienne 
@@ -623,26 +580,14 @@ class FBRestNet(nn.Module):
         # export
         if self.save_signals:
             Export_Data(t,gauss,self.dataset_folder+'data','gauss_'+self.constr)
-        # obtenir les images bruitees par l' operateur d' ordre a
-        # transform
+        # Transform the signal
         x_blurred  = self.physics.Compute(gauss).squeeze()
         yp         = self.physics.BasisChange(x_blurred)
-        # Etape 4 : noise 
-        vn          = np.zeros(m)
-        vn_temp     = np.random.randn(m)*self.physics.eigm**(-2*a)
-        vn[fmax:]   = vn_temp[fmax:]
-        vn_elt      = self.physics.BasisChangeInv(vn)
-        vn_elt      = vn_elt/np.linalg.norm(vn_elt)
-        #vn          = noise*np.linalg.norm(yp)*vn/np.linalg.norm(vn)
-        # White noise (as indicated in the paper)
+        # Etape 4 : Add noise 
         noise = np.random.randn(nx)
         x_blurred_n = x_blurred + self.noise*np.linalg.norm(x_blurred)/np.sqrt(nx)*noise
         
         # Etape 5 : bias
-        #x_b  = self.physics.ComputeAdjoint(x_blurred_n)
-        #Teig      = np.diag(self.physics.eigm**(-a))
-        #x_b       = self.physics.ComputeAdjoint(x_blurred.reshape(1,-1))
-        #x_b      += (Teig.dot(vn)).reshape(1,-1) # noise
         x_b = self.physics.ComputeAdjoint(x_blurred_n)
         x_b       = x_b.reshape(1,-1)
 
@@ -660,7 +605,6 @@ class FBRestNet(nn.Module):
             x_pred   = self.model(x_init,x_bias)
             xpc      = x_pred.detach().numpy()[0,0,:]
             xp       = self.physics.BasisChangeInv(xpc)
-            #xp[xp<0] = 0
         # export
         if self.save_signals:
             Export_Data(t,xp,self.dataset_folder+'data','gauss_pred_a{}'.format(self.physics.a)+self.constr)
